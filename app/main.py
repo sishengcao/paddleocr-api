@@ -10,8 +10,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .schemas import OcrResponse, HealthResponse, StatusResponse, OcrOptions, TextBox
+from .schemas import (
+    OcrResponse, HealthResponse, StatusResponse, OcrOptions, TextBox,
+    BatchScanRequest, BatchScanResponse, TaskStatusResponse, ExportRequest, ExportResponse
+)
 from .ocr_service import ocr_service
+from .batch_scan_service import batch_scan_service
 
 # 配置日志
 LOG_DIR = Path(__file__).parent.parent / "logs"
@@ -249,6 +253,144 @@ async def recognize_images_batch(
                 file_path.unlink()
 
     return results
+
+
+# ============ 批量扫描 API 端点 ============
+
+@app.post("/api/ocr/batch/scan", response_model=BatchScanResponse, tags=["批量扫描"])
+async def create_batch_scan(request: BatchScanRequest):
+    """
+    创建批量扫描任务
+
+    扫描指定目录下的所有图片文件，自动识别文件名中的卷号和页码，
+    并在后台执行 OCR 识别。
+
+    **请求示例：**
+    ```json
+    {
+        "directory": "/path/to/scans",
+        "book_id": "李氏族谱卷一",
+        "text_layout": "vertical_rl",
+        "output_format": "char_by_char",
+        "recursive": true
+    }
+    ```
+    """
+    logger.info(f"创建批量扫描任务 - 目录: {request.directory}, 书籍ID: {request.book_id}")
+
+    try:
+        task = batch_scan_service.create_task(request)
+
+        # 自动启动任务
+        batch_scan_service.start_task(task.task_id)
+
+        return BatchScanResponse(
+            success=True,
+            task_id=task.task_id,
+            message=f"批量扫描任务已创建并启动，共 {task.total_files} 个文件"
+        )
+
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"创建任务失败: {str(e)}")
+
+
+@app.post("/api/ocr/batch/start/{task_id}", tags=["批量扫描"])
+async def start_batch_scan(task_id: str):
+    """手动启动已创建的任务"""
+    success = batch_scan_service.start_task(task_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="任务不存在或无法启动")
+    return {"success": True, "message": "任务已启动"}
+
+
+@app.get("/api/ocr/batch/status/{task_id}", response_model=TaskStatusResponse, tags=["批量扫描"])
+async def get_batch_scan_status(task_id: str):
+    """获取批量扫描任务状态"""
+    status = batch_scan_service.get_task_status(task_id)
+    if status is None:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    return status
+
+
+@app.post("/api/ocr/batch/cancel/{task_id}", tags=["批量扫描"])
+async def cancel_batch_scan(task_id: str):
+    """取消批量扫描任务"""
+    success = batch_scan_service.cancel_task(task_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="任务不存在或无法取消")
+    return {"success": True, "message": "任务已取消"}
+
+
+@app.delete("/api/ocr/batch/task/{task_id}", tags=["批量扫描"])
+async def delete_batch_scan_task(task_id: str):
+    """删除批量扫描任务"""
+    success = batch_scan_service.delete_task(task_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    return {"success": True, "message": "任务已删除"}
+
+
+@app.get("/api/ocr/batch/tasks", tags=["批量扫描"])
+async def list_batch_scan_tasks():
+    """列出所有批量扫描任务"""
+    tasks = batch_scan_service.list_tasks()
+    return {"tasks": tasks}
+
+
+@app.post("/api/ocr/batch/export", response_model=ExportResponse, tags=["批量扫描"])
+async def export_batch_scan(request: ExportRequest):
+    """
+    导出批量扫描结果
+
+    支持导出为 JSON、CSV 格式，供族谱项目导入使用。
+    """
+    logger.info(f"导出任务结果 - task_id: {request.task_id}, format: {request.format}")
+
+    export_file = batch_scan_service.export_task(
+        request.task_id,
+        request.format,
+        request.include_details
+    )
+
+    if export_file is None:
+        raise HTTPException(status_code=404, detail="任务不存在或导出失败")
+
+    # 获取任务信息
+    task = batch_scan_service.tasks.get(request.task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+    file_size = Path(export_file).stat().st_size
+
+    return ExportResponse(
+        success=True,
+        download_url=f"/api/ocr/batch/download/{request.task_id}",
+        file_path=export_file,
+        file_size=file_size,
+        total_pages=len(task.pages),
+        message=f"导出成功，共 {len(task.pages)} 页"
+    )
+
+
+@app.get("/api/ocr/batch/download/{task_id}", tags=["批量扫描"])
+async def download_batch_scan_result(task_id: str, format: str = "json"):
+    """下载批量扫描结果文件"""
+    task = batch_scan_service.tasks.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+    # 导出文件
+    export_file = batch_scan_service.export_task(task_id, format)
+    if not export_file:
+        raise HTTPException(status_code=404, detail="导出失败")
+
+    return FileResponse(
+        export_file,
+        media_type="application/octet-stream",
+        filename=Path(export_file).name
+    )
 
 
 if __name__ == "__main__":
