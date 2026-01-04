@@ -153,206 +153,79 @@ async def root():
     return FileResponse(STATIC_DIR / "index.html")
 
 
-# 自定义增强文档界面（类似 knife4j）
+# 自定义增强文档界面（使用 Scalar）
 @app.get("/docs-enhanced", include_in_schema=False)
 async def enhanced_docs():
-    """增强版 API 文档界面"""
+    """增强版 API 文档界面 - Scalar"""
     return HTMLResponse(content="""
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PaddleOCR API - 在线文档</title>
-    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.10.0/swagger-ui.css">
+    <title>PaddleOCR API - 接口文档</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@scalar/api-reference@latest/style.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --scalar-color-primary: #667eea;
+            --scalar-color-primary-dark: #764ba2;
+        }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
+            margin: 0;
+            padding: 0;
         }
-        .header {
-            background: white;
-            border-radius: 12px;
-            padding: 20px 30px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .header h1 {
-            font-size: 1.8rem;
-            color: #333;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .header .badge {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-        }
-        .header .links {
-            display: flex;
-            gap: 15px;
-        }
-        .header .links a {
-            text-decoration: none;
-            color: #667eea;
-            font-weight: 500;
-            padding: 8px 16px;
-            border-radius: 6px;
-            transition: all 0.3s;
-        }
-        .header .links a:hover {
-            background: #f0f2ff;
-        }
-        .header .links a.active {
-            background: #667eea;
-            color: white;
-        }
-        .swagger-container {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            min-height: 600px;
-        }
-        .info-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        .info-card {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        }
-        .info-card h3 {
-            color: #667eea;
-            margin-bottom: 10px;
-            font-size: 1.1rem;
-        }
-        .info-card p {
-            color: #666;
-            line-height: 1.6;
-        }
-        .stat-number {
-            font-size: 2rem;
-            font-weight: 700;
-            color: #667eea;
+        #scalar-container {
+            height: 100vh;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>
-            <span>📄 PaddleOCR API</span>
-            <span class="badge">v2.0.0</span>
-        </h1>
-        <div class="links">
-            <a href="/" class="">🏠 首页</a>
-            <a href="/docs-enhanced" class="active">📚 在线文档</a>
-            <a href="/redoc">📖 ReDoc</a>
-            <a href="/api/ocr/health">💚 健康检查</a>
-        </div>
-    </div>
-
-    <div class="info-cards">
-        <div class="info-card">
-            <h3>🎯 功能特性</h3>
-            <p>• 单图/批量识别<br>• 竖排文字支持<br>• 批量扫描目录<br>• JSON/CSV 导出</p>
-        </div>
-        <div class="info-card">
-            <h3>📊 接口统计</h3>
-            <p><span class="stat-number">8+</span> 个 API 端点<br>4 个功能分组</p>
-        </div>
-        <div class="info-card">
-            <h3>🚀 快速开始</h3>
-            <p>1. 选择接口<br>2. 点击 "Try it out"<br>3. 填写参数<br>4. 点击 "Execute"</p>
-        </div>
-    </div>
-
-    <div class="swagger-container">
-        <div id="swagger-ui"></div>
-    </div>
-
-    <script src="https://unpkg.com/swagger-ui-dist@5.10.0/swagger-ui-bundle.js"></script>
-    <script src="https://unpkg.com/swagger-ui-dist@5.10.0/swagger-ui-standalone-preset.js"></script>
+    <div id="scalar-container"></div>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@latest"></script>
     <script>
-    window.onload = function() {
-        const ui = SwaggerUIBundle({
-            url: '/openapi.json',
-            dom_id: '#swagger-ui',
-            deepLinking: true,
-            presets: [
-                SwaggerUIBundle.presets.apis,
-                SwaggerUIStandalonePreset
-            ],
-            layout: "BaseLayout",
-            defaultModelsExpandDepth: 1,
-            defaultModelExpandDepth: 1,
-            docExpansion: "list",
-            filter: true,
-            tryItOutEnabled: true,
-            persistAuthorization: true,
-            syntaxHighlight: {
-                activate: true,
-                theme: "monokai"
-            },
-            validatorUrl: null,
-            displayRequestDuration: true,
-            displayOperationId: false,
-            supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
-            onComplete: function() {
-                // 美化界面
-                const style = document.createElement('style');
-                style.innerHTML = `
-                    .swagger-ui .topbar { display: none; }
-                    .swagger-ui .info { margin: 20px 0; }
-                    .swagger-ui .info .title { font-size: 24px; }
-                    .swagger-ui .opblock {
-                        border-radius: 8px;
-                        margin-bottom: 10px;
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-                    }
-                    .swagger-ui .opblock .opblock-summary {
-                        border-radius: 8px;
-                    }
-                    .swagger-ui .opblock.opblock-post {
-                        border-color: #49cc90;
-                        background: rgba(73, 204, 144, 0.1);
-                    }
-                    .swagger-ui .opblock.opblock-get {
-                        border-color: #61affe;
-                        background: rgba(97, 175, 254, 0.1);
-                    }
-                    .swagger-ui .opblock.opblock-delete {
-                        border-color: #f93e3e;
-                        background: rgba(249, 62, 62, 0.1);
-                    }
-                    .swagger-ui .btn {
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                        border: none;
-                        border-radius: 6px;
-                    }
-                    .swagger-ui .btn:hover {
-                        opacity: 0.9;
-                        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-        });
-        window.ui = ui;
-    }
+      Scalar.ApiReference.create('#scalar-container', {
+        url: '/openapi.json',
+        theme: 'default',
+        darkMode: true,
+        layout: 'modern',
+        search: true,
+        hideClientButton: true,
+        hideServerButton: true,
+        metaData: {
+            title: '📄 PaddleOCR API',
+          description: '基于 PaddleOCR 的图片文字识别服务，支持中英文识别、竖排文字、批量扫描等功能',
+          url: 'http://localhost:8000',
+          contact: {
+            name: 'API 支持',
+            email: 'support@example.com'
+          },
+          license: {
+            name: 'MIT'
+          }
+        },
+        translations: {
+          tryItOut': '🚀 测试',
+          sending: '发送中...',
+          sent: '发送成功',
+          clear: '清空',
+          request: '请求',
+          response: '响应',
+          body: '请求体',
+          headers: '请求头',
+          parameters: '参数',
+          authorization: '授权',
+          default: '默认值',
+          required: '必填',
+          optional: '选填',
+          examples: '示例',
+          example: '示例',
+          noResults: '未找到结果',
+          search: '搜索接口...'
+        },
+        spec: {
+          url: '/openapi.json'
+        }
+      });
     </script>
 </body>
 </html>
