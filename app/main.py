@@ -85,14 +85,26 @@ async def recognize_image(
     file: UploadFile = File(..., description="图片文件"),
     lang: str = Form(default="ch", description="语言类型"),
     use_angle_cls: bool = Form(default=True, description="是否使用文字方向分类"),
-    return_details: bool = Form(default=True, description="是否返回详细信息")
+    return_details: bool = Form(default=True, description="是否返回详细信息"),
+    text_layout: str = Form(default="horizontal", description="文字排版方向：horizontal-横排, vertical_rl-竖排从右到左, vertical_lr-竖排从左到右"),
+    output_format: str = Form(default="line_by_line", description="输出格式：line_by_line-逐行, char_by_char-逐字, column_by_column-逐列")
 ):
     """
     识别单张图片
 
     支持的图片格式：jpg, png, bmp, jpeg
+
+    **新增参数说明：**
+    - **text_layout**: 文字排版方向
+      - `horizontal`: 横排从左到右（默认）
+      - `vertical_rl`: 竖排从右到左（古书传统排版）
+      - `vertical_lr`: 竖排从左到右
+    - **output_format**: 输出格式
+      - `line_by_line`: 逐行输出（默认）
+      - `char_by_char`: 逐字排列，所有文字连在一起
+      - `column_by_column`: 逐列排列，保留列结构
     """
-    logger.info(f"收到识别请求 - 文件名: {file.filename}, 语言: {lang}, 角度分类: {use_angle_cls}")
+    logger.info(f"收到识别请求 - 文件名: {file.filename}, 语言: {lang}, 角度分类: {use_angle_cls}, 排版: {text_layout}, 格式: {output_format}")
 
     # 检查文件格式
     allowed_extensions = {".jpg", ".jpeg", ".png", ".bmp"}
@@ -122,7 +134,9 @@ async def recognize_image(
         options = OcrOptions(
             lang=lang,
             use_angle_cls=use_angle_cls,
-            return_details=return_details
+            return_details=return_details,
+            text_layout=text_layout,
+            output_format=output_format
         )
 
         # 执行识别
@@ -166,10 +180,16 @@ async def recognize_images_batch(
     files: List[UploadFile] = File(..., description="图片文件列表（最多10张）"),
     lang: str = Form(default="ch", description="语言类型"),
     use_angle_cls: bool = Form(default=True, description="是否使用文字方向分类"),
-    return_details: bool = Form(default=True, description="是否返回详细信息")
+    return_details: bool = Form(default=True, description="是否返回详细信息"),
+    text_layout: str = Form(default="horizontal", description="文字排版方向：horizontal-横排, vertical_rl-竖排从右到左, vertical_lr-竖排从左到右"),
+    output_format: str = Form(default="line_by_line", description="输出格式：line_by_line-逐行, char_by_char-逐字, column_by_column-逐列")
 ):
     """
     批量识别图片（最多10张）
+
+    **新增参数说明：**
+    - **text_layout**: 文字排版方向
+    - **output_format**: 输出格式
     """
     # 限制文件数量
     if len(files) > 10:
@@ -206,7 +226,9 @@ async def recognize_images_batch(
             options = OcrOptions(
                 lang=lang,
                 use_angle_cls=use_angle_cls,
-                return_details=return_details
+                return_details=return_details,
+                text_layout=text_layout,
+                output_format=output_format
             )
 
             # 执行识别

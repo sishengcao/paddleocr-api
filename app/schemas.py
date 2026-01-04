@@ -1,6 +1,20 @@
 """Pydantic 数据模型定义"""
-from typing import List, Optional
+from typing import List, Optional, Literal
 from pydantic import BaseModel, Field
+
+
+class TextLayout(str):
+    """文字排版方向"""
+    HORIZONTAL = "horizontal"  # 横排从左到右
+    VERTICAL_RL = "vertical_rl"  # 竖排从右到左
+    VERTICAL_LR = "vertical_lr"  # 竖排从左到右
+
+
+class OutputFormat(str):
+    """输出格式"""
+    LINE_BY_LINE = "line_by_line"  # 逐行（默认）
+    CHAR_BY_CHAR = "char_by_char"  # 逐字排列
+    COLUMN_BY_COLUMN = "column_by_column"  # 逐列排列
 
 
 class OcrOptions(BaseModel):
@@ -8,6 +22,14 @@ class OcrOptions(BaseModel):
     lang: str = Field(default="ch", description="语言类型：ch-中文, en-英文")
     use_angle_cls: bool = Field(default=True, description="是否使用文字方向分类")
     return_details: bool = Field(default=True, description="是否返回详细信息")
+    text_layout: Literal["horizontal", "vertical_rl", "vertical_lr"] = Field(
+        default="horizontal",
+        description="文字排版方向：horizontal-横排, vertical_rl-竖排从右到左, vertical_lr-竖排从左到右"
+    )
+    output_format: Literal["line_by_line", "char_by_char", "column_by_column"] = Field(
+        default="line_by_line",
+        description="输出格式：line_by_line-逐行, char_by_char-逐字, column_by_column-逐列"
+    )
 
 
 class TextBox(BaseModel):

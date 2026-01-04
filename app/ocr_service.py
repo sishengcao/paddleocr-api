@@ -7,6 +7,107 @@ from typing import List, Dict, Any, Optional
 from paddleocr import PaddleOCR
 from .schemas import TextBox, OcrOptions
 
+
+def _calculate_box_center(box: List[List[float]]) -> tuple:
+    """计算文字框的中心点坐标"""
+    center_x = sum(p[0] for p in box) / 4
+    center_y = sum(p[1] for p in box) / 4
+    return center_x, center_y
+
+
+def _sort_horizontal(details: List[Dict]) -> List[Dict]:
+    """横排从左到右排序"""
+    for item in details:
+        item['_center_x'], item['_center_y'] = _calculate_box_center(item['box'])
+    # 先按Y升序（从上到下），再按X升序（从左到右）
+    sorted_items = sorted(details, key=lambda x: (x['_center_y'], x['_center_x']))
+    for item in sorted_items:
+        del item['_center_x'], item['_center_y']
+    return sorted_items
+
+
+def _sort_vertical_rl(details: List[Dict]) -> List[Dict]:
+    """竖排从右到左排序"""
+    for item in details:
+        item['_center_x'], item['_center_y'] = _calculate_box_center(item['box'])
+    # 先按X降序（从右到左），再按Y升序（从上到下）
+    sorted_items = sorted(details, key=lambda x: (-x['_center_x'], x['_center_y']))
+    for item in sorted_items:
+        del item['_center_x'], item['_center_y']
+    return sorted_items
+
+
+def _sort_vertical_lr(details: List[Dict]) -> List[Dict]:
+    """竖排从左到右排序"""
+    for item in details:
+        item['_center_x'], item['_center_y'] = _calculate_box_center(item['box'])
+    # 先按X升序（从左到右），再按Y升序（从上到下）
+    sorted_items = sorted(details, key=lambda x: (x['_center_x'], x['_center_y']))
+    for item in sorted_items:
+        del item['_center_x'], item['_center_y']
+    return sorted_items
+
+
+def _format_text_by_layout(details: List[Dict], text_layout: str, output_format: str) -> str:
+    """
+    根据排版方向和输出格式生成文本
+
+    Args:
+        details: 识别结果列表
+        text_layout: 文字排版方向 (horizontal, vertical_rl, vertical_lr)
+        output_format: 输出格式 (line_by_line, char_by_char, column_by_column)
+
+    Returns:
+        格式化后的文本
+    """
+    if not details:
+        return ""
+
+    # 转换为字典列表以便处理
+    items = [item.dict() if hasattr(item, 'dict') else item for item in details]
+
+    # 根据排版方向排序
+    if text_layout == "vertical_rl":
+        sorted_items = _sort_vertical_rl(items)
+    elif text_layout == "vertical_lr":
+        sorted_items = _sort_vertical_lr(items)
+    else:  # horizontal
+        sorted_items = _sort_horizontal(items)
+
+    # 根据输出格式生成文本
+    if output_format == "char_by_char":
+        # 逐字排列：将所有文字连在一起
+        return "".join(item['text'] for item in sorted_items)
+
+    elif output_format == "column_by_column":
+        # 逐列排列：需要按列分组
+        if text_layout == "vertical_rl" or text_layout == "vertical_lr":
+            # 竖排版：按X坐标分列
+            columns = {}
+            for item in sorted_items:
+                center_x, _ = _calculate_box_center(item['box'])
+                # 使用X坐标作为列的键（四舍五入以处理精度问题）
+                col_key = round(center_x, 0)
+                if col_key not in columns:
+                    columns[col_key] = []
+                columns[col_key].append(item['text'])
+            # 将每列的文字连成一行
+            return "\n".join("".join(col) for col in columns.values())
+        else:
+            # 横排版：按行分组
+            lines = {}
+            for item in sorted_items:
+                _, center_y = _calculate_box_center(item['box'])
+                line_key = round(center_y, 0)
+                if line_key not in lines:
+                    lines[line_key] = []
+                lines[line_key].append(item['text'])
+            return "\n".join("".join(line) for line in lines.values())
+
+    else:  # line_by_line (默认)
+        # 逐行排列：每个识别结果一行
+        return "\n".join(item['text'] for item in sorted_items)
+
 # 配置日志
 LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -113,8 +214,13 @@ class OcrService:
                                 box=[[float(x), float(y)] for x, y in box_coords]
                             ))
 
-            # 拼接完整文本
-            full_text = "\n".join(texts)
+            # 根据排版方向和输出格式生成文本
+            if details and (options.text_layout != "horizontal" or options.output_format != "line_by_line"):
+                full_text = _format_text_by_layout(details, options.text_layout, options.output_format)
+                logger.info(f"使用自定义排版: layout={options.text_layout}, format={options.output_format}")
+            else:
+                # 默认拼接方式
+                full_text = "\n".join(texts)
 
             # 更新统计
             self.total_requests += 1

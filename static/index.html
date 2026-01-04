@@ -120,6 +120,34 @@
             color: #333;
         }
 
+        .option-select {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            background: white;
+            cursor: pointer;
+        }
+
+        .option-select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .select-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .select-group label {
+            font-weight: 500;
+            color: #333;
+            white-space: nowrap;
+        }
+
         .btn-group {
             display: flex;
             gap: 10px;
@@ -356,6 +384,22 @@
                     <input type="checkbox" id="returnDetails" checked>
                     <label for="returnDetails">返回详细信息</label>
                 </div>
+                <div class="select-group">
+                    <label for="textLayout">排版方向:</label>
+                    <select id="textLayout" class="option-select">
+                        <option value="horizontal">横排从左到右</option>
+                        <option value="vertical_rl">竖排从右到左（古书）</option>
+                        <option value="vertical_lr">竖排从左到右</option>
+                    </select>
+                </div>
+                <div class="select-group">
+                    <label for="outputFormat">输出格式:</label>
+                    <select id="outputFormat" class="option-select">
+                        <option value="line_by_line">逐行输出</option>
+                        <option value="char_by_char">逐字排列</option>
+                        <option value="column_by_column">逐列排列</option>
+                    </select>
+                </div>
             </div>
 
             <!-- 按钮组 -->
@@ -430,6 +474,8 @@
         const resultJson = document.getElementById('resultJson');
         const useAngleCls = document.getElementById('useAngleCls');
         const returnDetails = document.getElementById('returnDetails');
+        const textLayout = document.getElementById('textLayout');
+        const outputFormat = document.getElementById('outputFormat');
 
         let selectedFile = null;
 
@@ -500,12 +546,16 @@
             formData.append('file', selectedFile);
             formData.append('use_angle_cls', useAngleCls.checked);
             formData.append('return_details', returnDetails.checked);
+            formData.append('text_layout', textLayout.value);
+            formData.append('output_format', outputFormat.value);
 
             console.log('=== 发送识别请求 ===');
             console.log('文件:', selectedFile.name, selectedFile.size, 'bytes');
             console.log('参数:', {
                 use_angle_cls: useAngleCls.checked,
-                return_details: returnDetails.checked
+                return_details: returnDetails.checked,
+                text_layout: textLayout.value,
+                output_format: outputFormat.value
             });
 
             showLoading();
