@@ -153,83 +153,11 @@ async def root():
     return FileResponse(STATIC_DIR / "index.html")
 
 
-# 自定义增强文档界面（使用 Scalar）
+# 自定义增强文档界面
 @app.get("/docs-enhanced", include_in_schema=False)
 async def enhanced_docs():
-    """增强版 API 文档界面 - Scalar"""
-    return HTMLResponse(content="""
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PaddleOCR API - 接口文档</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@scalar/api-reference@latest/style.css">
-    <style>
-        :root {
-            --scalar-color-primary: #667eea;
-            --scalar-color-primary-dark: #764ba2;
-        }
-        body {
-            margin: 0;
-            padding: 0;
-        }
-        #scalar-container {
-            height: 100vh;
-        }
-    </style>
-</head>
-<body>
-    <div id="scalar-container"></div>
-    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@latest"></script>
-    <script>
-      Scalar.ApiReference.create('#scalar-container', {
-        url: '/openapi.json',
-        theme: 'default',
-        darkMode: true,
-        layout: 'modern',
-        search: true,
-        hideClientButton: true,
-        hideServerButton: true,
-        metaData: {
-            title: '📄 PaddleOCR API',
-          description: '基于 PaddleOCR 的图片文字识别服务，支持中英文识别、竖排文字、批量扫描等功能',
-          url: 'http://localhost:8000',
-          contact: {
-            name: 'API 支持',
-            email: 'support@example.com'
-          },
-          license: {
-            name: 'MIT'
-          }
-        },
-        translations: {
-          tryItOut': '🚀 测试',
-          sending: '发送中...',
-          sent: '发送成功',
-          clear: '清空',
-          request: '请求',
-          response: '响应',
-          body: '请求体',
-          headers: '请求头',
-          parameters: '参数',
-          authorization: '授权',
-          default: '默认值',
-          required: '必填',
-          optional: '选填',
-          examples: '示例',
-          example: '示例',
-          noResults: '未找到结果',
-          search: '搜索接口...'
-        },
-        spec: {
-          url: '/openapi.json'
-        }
-      });
-    </script>
-</body>
-</html>
-    """)
+    """增强版 API 文档界面"""
+    return FileResponse(STATIC_DIR / "docs.html")
 
 
 @app.get("/docs", include_in_schema=False)
