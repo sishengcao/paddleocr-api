@@ -10,6 +10,8 @@
 - ✅ 异步处理，支持高并发
 - ✅ 完善的错误处理
 - ✅ API 文档自动生成
+- ✅ Docker 容器化部署
+- ✅ 一键 Linux 自动部署脚本
 
 ## 快速开始
 
@@ -102,6 +104,130 @@ sudo systemctl status paddleocr-api
 
 # 查看服务日志
 sudo journalctl -u paddleocr-api -f
+```
+
+### 方式三：Docker 容器化部署
+
+**最推荐的部署方式，环境隔离，跨平台运行**
+
+#### 1. 使用 Docker 构建和运行
+
+```bash
+# 克隆项目
+git clone https://github.com/sishengcao/paddleocr-api.git
+cd paddleocr-api
+
+# 构建 Docker 镜像
+docker build -t paddleocr-api:latest .
+
+# 运行容器
+docker run -d \
+  --name paddleocr-api \
+  -p 8000:8000 \
+  -v $(pwd)/logs:/app/logs \
+  -v $(pwd)/uploads:/app/uploads \
+  --restart unless-stopped \
+  paddleocr-api:latest
+```
+
+#### 2. 使用 Docker Compose（推荐）
+
+```bash
+# 克隆项目
+git clone https://github.com/sishengcao/paddleocr-api.git
+cd paddleocr-api
+
+# 一键启动
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f
+
+# 停止服务
+docker-compose down
+
+# 重启服务
+docker-compose restart
+```
+
+**Docker Compose 配置说明：**
+- 端口映射：`8000:8000`
+- 日志目录：`./logs` → `/app/logs`
+- 上传目录：`./uploads` → `/app/uploads`
+- 资源限制：2 CPU，2GB 内存（可修改 `docker-compose.yml` 调整）
+- 健康检查：每 30 秒检查一次服务状态
+
+#### 3. Docker 常用命令
+
+```bash
+# 查看容器状态
+docker ps
+
+# 查看容器日志
+docker logs -f paddleocr-api
+
+# 进入容器
+docker exec -it paddleocr-api bash
+
+# 停止容器
+docker stop paddleocr-api
+
+# 启动容器
+docker start paddleocr-api
+
+# 删除容器
+docker rm paddleocr-api
+
+# 删除镜像
+docker rmi paddleocr-api:latest
+
+# 查看容器资源使用
+docker stats paddleocr-api
+```
+
+#### 4. 自定义配置
+
+修改 `docker-compose.yml` 中的环境变量：
+
+```yaml
+environment:
+  - PORT=8000              # 服务端口
+  - OCR_LANG=ch            # 语言：ch-中文, en-英文
+  - OCR_USE_GPU=false      # 是否使用 GPU（需要 nvidia-docker）
+  - LOG_LEVEL=info         # 日志级别
+```
+
+#### 5. 使用 GPU 加速
+
+如果宿主机有 NVIDIA GPU 并安装了 nvidia-docker：
+
+```bash
+# 安装 nvidia-docker（如果未安装）
+distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+
+sudo apt-get update && sudo apt-get install -y nvidia-docker2
+sudo systemctl restart docker
+
+# 修改 docker-compose.yml，添加 GPU 支持
+services:
+  paddleocr-api:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+```
+
+然后修改 Dockerfile，使用 GPU 版本的 PaddlePaddle：
+
+```dockerfile
+# 替换 requirements.txt 中的安装命令
+RUN pip uninstall paddlepaddle -y && \
+    pip install paddlepaddle-gpu==2.6.2 -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 ## API 接口
@@ -229,13 +355,19 @@ paddleocr-api/
 │   ├── main.py           # FastAPI 主应用
 │   ├── ocr_service.py    # OCR 服务封装
 │   └── schemas.py        # 数据模型
+├── static/               # 静态文件（Web UI）
 ├── temp/                 # 临时文件目录
 ├── uploads/              # 上传文件目录
-├── requirements.txt      # 依赖列表
-├── .env                 # 环境配置
-├── start.bat            # Windows 启动脚本
-├── start.sh             # Linux 启动脚本
-└── README.md            # 项目文档
+├── logs/                 # 日志目录
+├── requirements.txt      # Python 依赖列表
+├── Dockerfile            # Docker 镜像构建文件
+├── docker-compose.yml    # Docker Compose 配置
+├── .dockerignore         # Docker 忽略文件
+├── .env                  # 环境配置
+├── start.bat             # Windows 启动脚本
+├── start.sh              # Linux/Mac 启动脚本
+├── deploy-linux.sh       # Linux 自动部署脚本
+└── README.md             # 项目文档
 ```
 
 ## 常见问题
