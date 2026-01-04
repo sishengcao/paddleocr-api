@@ -13,6 +13,8 @@
 
 ## 快速开始
 
+### 方式一：Windows 本地运行
+
 ### 1. 安装依赖
 
 ```bash
@@ -55,6 +57,52 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 服务启动后，访问：
 - API 文档：http://localhost:8000/docs
 - 健康检查：http://localhost:8000/api/ocr/health
+
+### 方式二：Linux 一键自动部署
+
+**适用于全新安装的 Linux 虚拟机（Ubuntu/Debian/CentOS/Fedora）**
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/sishengcao/paddleocr-api.git
+cd paddleocr-api
+
+# 2. 运行自动部署脚本
+chmod +x deploy-linux.sh
+./deploy-linux.sh
+```
+
+**脚本功能：**
+- 自动检测 Linux 发行版
+- 自动安装 Python3、pip 和虚拟环境工具
+- 自动安装系统依赖（PaddleOCR 所需）
+- 创建并配置 Python 虚拟环境
+- 安装所有 Python 依赖包
+- 可选：创建 systemd 系统服务（开机自启）
+
+**手动启动服务：**
+```bash
+source venv/bin/activate
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+**使用 systemd 服务（如果安装时选择创建）：**
+```bash
+# 启动服务
+sudo systemctl start paddleocr-api
+
+# 停止服务
+sudo systemctl stop paddleocr-api
+
+# 重启服务
+sudo systemctl restart paddleocr-api
+
+# 查看服务状态
+sudo systemctl status paddleocr-api
+
+# 查看服务日志
+sudo journalctl -u paddleocr-api -f
+```
 
 ## API 接口
 
