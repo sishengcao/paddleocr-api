@@ -1,0 +1,16 @@
+# PaddleOCR API 服务依赖
+
+# Web 框架
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+
+# OCR 引擎
+paddlepaddle>=2.5.0
+paddleocr>=2.7.0
+
+# 数据验证
+pydantic>=2.0.0
+
+# 其他依赖
+Pillow>=10.0.0
