@@ -450,3 +450,385 @@ docker compose exec paddleocr-api bash
 - Docker Compose 版本：`docker compose version`
 - 完整的错误信息
 - 网络诊断结果
+
+---
+
+## 11. 实战案例：网络受限环境部署（Ubuntu 24.04）
+
+### 11.1 环境背景
+
+**服务器信息**：
+- 系统：Ubuntu 24.04.3 LTS
+- IP：192.168.124.134
+- 用户：ppocr
+- 网络状态：严重受限，无法访问 Docker Hub 和大多数国内镜像源
+
+### 11.2 遇到的问题
+
+#### 问题 1：Docker 镜像拉取失败
+
+```
+Error: failed to resolve reference "docker.io/library/xxx": connection reset by peer
+```
+
+**尝试的解决方案**：
+1. ✗ 配置镜像加速器（docker.xuanyuan.me → 401）
+2. ✗ 配置镜像加速器（docker.1panel.live → 403）
+3. ✗ 配置镜像加速器（阿里云 → 404）
+4. ✗ 使用国内镜像仓库（全部失败）
+
+**结论**：服务器网络严重受限，所有测试的镜像源均不可用。
+
+#### 问题 2：Docker 构建失败
+
+```
+failed to solve: process "/bin/sh -c apt-get update" did not complete successfully: exit code: 100
+```
+
+**原因**：
+- 即使配置了国内软件源（阿里云 mirrors.aliyun.com），apt-get update 仍然失败
+- Docker 容器内的网络环境比宿主机更加受限
+
+#### 问题 3：libGL.so.1 缺失
+
+```
+ImportError: libGL.so.1: cannot open shared object file: No such file or directory
+```
+
+**解决**：在宿主机安装系统依赖
+```bash
+sudo apt install -y libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 libgomp1
+```
+
+#### 问题 4：MySQL 环境变量被清空
+
+```
+MYSQL_ROOT_PASSWORD=  # 密码为空
+```
+
+**原因**：`!qwert` 中的 `!` 被 shell 解释为历史命令扩展
+
+**解决**：使用单引号包裹密码
+```bash
+docker run -e 'MYSQL_ROOT_PASSWORD=!qwert' ...
+```
+
+### 11.3 最终解决方案：混合部署
+
+由于完全无法使用 Docker 构建，采用**混合部署方案**：
+
+**架构**：
+- MySQL 和 Redis 使用 Docker 容器（手动导入的镜像）
+- PaddleOCR API 在宿主机运行（Python 虚拟环境）
+
+#### 步骤 1：准备镜像（在有网络的机器）
+
+```bash
+# 拉取所需镜像
+docker pull mysql:8.0
+docker pull redis:7-alpine
+
+# 导出镜像
+docker save mysql:8.0 redis:7-alpine -o paddleocr-images.tar
+
+# 传输到服务器
+scp paddleocr-images.tar ppocr@192.168.124.134:/tmp/
+```
+
+#### 步骤 2：在服务器导入镜像
+
+```bash
+ssh ppocr@192.168.124.134
+docker load -i /tmp/paddleocr-images.tar
+```
+
+#### 步骤 3：部署基础服务（Docker）
+
+```bash
+# 部署 MySQL（注意单引号）
+docker run -d \
+  --name paddleocr-mysql \
+  -e 'MYSQL_ROOT_PASSWORD=!qwert' \
+  -e 'MYSQL_DATABASE=paddleocr_api' \
+  -p 3306:3306 \
+  -v mysql_data:/var/lib/mysql \
+  mysql:8.0
+
+# 部署 Redis
+docker run -d \
+  --name paddleocr-redis \
+  -p 6379:6379 \
+  -v redis_data:/data \
+  redis:7-alpine
+```
+
+#### 步骤 4：部署 API（宿主机）
+
+```bash
+cd /opt/paddleocr-api
+
+# 安装系统依赖
+sudo apt install -y python3.12-venv python3-pip libgl1 libglib2.0-0
+
+# 创建虚拟环境
+python3 -m venv venv
+source venv/bin/activate
+
+# 安装 Python 依赖（使用清华源）
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 创建 .env 文件
+cat > .env << 'EOF'
+APP_NAME=PaddleOCR API
+DEBUG=false
+HOST=0.0.0.0
+PORT=8000
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=!qwert
+DB_NAME=paddleocr_api
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+OCR_LANG=ch
+OCR_USE_GPU=false
+EOF
+
+# 启动 API（后台运行）
+nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/api.log 2>&1 &
+```
+
+#### 步骤 5：验证部署
+
+```bash
+# 检查服务状态
+docker ps | grep -E "mysql|redis"
+ps aux | grep uvicorn
+
+# 测试 API
+curl http://localhost:8000/api/ocr/health
+
+# 查看日志
+tail -f /tmp/api.log
+```
+
+### 11.4 服务管理命令
+
+```bash
+# 启动所有服务
+docker start paddleocr-mysql paddleocr-redis
+cd /opt/paddleocr-api
+source venv/bin/activate
+nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/api.log 2>&1 &
+
+# 停止所有服务
+pkill -f uvicorn
+docker stop paddleocr-mysql paddleocr-redis
+
+# 重启 API
+pkill -f uvicorn
+cd /opt/paddleocr-api
+source venv/bin/activate
+nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/api.log 2>&1 &
+
+# 查看 API 日志
+tail -f /tmp/api.log
+
+# 查看 MySQL 日志
+docker logs -f paddleocr-mysql
+
+# 进入 MySQL 容器
+docker exec -it paddleocr-mysql bash
+```
+
+### 11.5 关键经验总结
+
+| 问题 | 解决方案 | 经验 |
+|------|----------|------|
+| 镜像拉取失败 | 手动导入 | 严重受限网络无法使用镜像加速器 |
+| 构建失败 | 宿主机部署 | Docker 内网络比宿主机更受限 |
+| libGL 缺失 | 安装系统依赖 | Ubuntu 24.04 使用 `libgl1` 而非 `libgl1-mesa-glx` |
+| 密码变量清空 | 单引号包裹 | `!` 是 shell 特殊字符，必须转义或使用单引号 |
+| pip 安装慢 | 使用国内源 | 清华源 `https://pypi.tuna.tsinghua.edu.cn/simple` |
+
+### 11.6 访问地址
+
+| 服务 | 地址 | 说明 |
+|------|------|------|
+| API 服务 | http://192.168.124.134:8000 | 主要接口 |
+| API 文档 | http://192.168.124.134:8000/docs | Swagger UI |
+| ReDoc | http://192.168.124.134:8000/redoc | 备用文档 |
+| MySQL | localhost:3306 | 仅内部访问 |
+| Redis | localhost:6379 | 仅内部访问 |
+
+### 11.7 故障排查
+
+```bash
+# 检查服务状态
+docker ps
+ps aux | grep uvicorn
+
+# 检查端口占用
+netstat -tlnp | grep -E "3306|6379|8000"
+
+# 测试数据库连接
+docker exec paddleocr-mysql mysql -u root -p'!qwert' -e "SHOW DATABASES;"
+
+# 测试 Redis
+docker exec paddleocr-redis redis-cli ping
+
+# 测试 API
+curl http://localhost:8000/api/ocr/health
+
+# 查看详细错误
+tail -50 /tmp/api.log
+```
+
+---
+
+## 12. 快速部署脚本（混合部署）
+
+基于以上经验，提供一键部署脚本：
+
+```bash
+#!/bin/bash
+# hybrid-deploy.sh - 网络受限环境混合部署脚本
+
+set -e
+
+echo "=== PaddleOCR API 混合部署脚本 ==="
+
+# 检查是否已导入镜像
+echo "1. 检查 Docker 镜像..."
+if ! docker images | grep -q "mysql.*8.0"; then
+    echo "错误：未找到 MySQL 镜像，请先导入："
+    echo "docker load -i /tmp/paddleocr-images.tar"
+    exit 1
+fi
+
+if ! docker images | grep -q "redis.*7-alpine"; then
+    echo "错误：未找到 Redis 镜像，请先导入："
+    echo "docker load -i /tmp/paddleocr-images.tar"
+    exit 1
+fi
+echo "✓ 镜像检查完成"
+
+# 部署 MySQL
+echo "2. 部署 MySQL..."
+docker run -d \
+  --name paddleocr-mysql \
+  --restart unless-stopped \
+  -e 'MYSQL_ROOT_PASSWORD=!qwert' \
+  -e 'MYSQL_DATABASE=paddleocr_api' \
+  -p 3306:3306 \
+  -v mysql_data:/var/lib/mysql \
+  mysql:8.0
+
+# 等待 MySQL 启动
+echo "等待 MySQL 启动..."
+sleep 10
+
+# 部署 Redis
+echo "3. 部署 Redis..."
+docker run -d \
+  --name paddleocr-redis \
+  --restart unless-stopped \
+  -p 6379:6379 \
+  -v redis_data:/data \
+  redis:7-alpine
+
+# 安装系统依赖
+echo "4. 安装系统依赖..."
+sudo apt install -y python3.12-venv python3-pip libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 libgomp1
+
+# 创建虚拟环境
+echo "5. 创建虚拟环境..."
+cd /opt/paddleocr-api
+[ -d venv ] || python3 -m venv venv
+source venv/bin/activate
+
+# 安装 Python 依赖
+echo "6. 安装 Python 依赖..."
+pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 创建 .env 文件
+echo "7. 配置环境变量..."
+cat > .env << 'EOF'
+APP_NAME=PaddleOCR API
+DEBUG=false
+LOG_LEVEL=INFO
+HOST=0.0.0.0
+PORT=8000
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=!qwert
+DB_NAME=paddleocr_api
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+OCR_LANG=ch
+OCR_USE_GPU=false
+EOF
+
+# 启动 API
+echo "8. 启动 API 服务..."
+pkill -f uvicorn || true
+nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/api.log 2>&1 &
+
+# 等待 API 启动
+sleep 5
+
+# 验证部署
+echo "9. 验证部署..."
+echo "MySQL: $(docker ps | grep paddleocr-mysql | grep -q Up && echo '✓ Running' || echo '✗ Failed')"
+echo "Redis: $(docker ps | grep paddleocr-redis | grep -q Up && echo '✓ Running' || echo '✗ Failed')"
+echo "API: $(curl -s http://localhost:8000/api/ocr/health > /dev/null && echo '✓ Running' || echo '✗ Failed')"
+
+echo ""
+echo "=== 部署完成 ==="
+echo "API: http://$(hostname -I | awk '{print $1}'):8000"
+echo "文档: http://$(hostname -I | awk '{print $1}'):8000/docs"
+echo ""
+echo "日志位置："
+echo "  API: tail -f /tmp/api.log"
+echo "  MySQL: docker logs -f paddleocr-mysql"
+echo "  Redis: docker logs -f paddleocr-redis"
+```
+
+使用方法：
+```bash
+# 1. 导入镜像
+docker load -i /tmp/paddleocr-images.tar
+
+# 2. 运行部署脚本
+bash hybrid-deploy.sh
+```
+
+---
+
+## 附录 A：完整部署流程对比
+
+| 方案 | 适用场景 | 优点 | 缺点 |
+|------|----------|------|------|
+| **纯 Docker** | 网络正常 | 统一管理，易于维护 | 需要构建镜像 |
+| **混合部署** | 网络受限 | 避免构建问题 | 管理分离 |
+| **手动导入** | 完全离线 | 不依赖网络 | 需要提前准备镜像 |
+| **本地构建** | 无法在线构建 | 在有网络环境构建 | 需要传输大文件 |
+
+---
+
+## 附录 B：常见问题快速索引
+
+| 问题 | 章节 |
+|------|------|
+| Docker Compose 版本问题 | [第1节](#1-docker-compose-版本问题) |
+| .env 文件缺失 | [第2节](#2-环境变量文件缺失) |
+| 镜像拉取失败 | [第3节](#3-docker-镜像拉取失败) |
+| 国内镜像源配置 | [第4节](#4-国内镜像源配置) |
+| 容器构建失败 | [第5节](#5-容器构建失败) |
+| 网络环境诊断 | [第6节](#6-网络环境诊断) |
+| 网络受限实战案例 | [第11节](#11-实战案例网络受限环境部署-ubuntu-2404) |
+- Docker Compose 版本：`docker compose version`
+- 完整的错误信息
+- 网络诊断结果

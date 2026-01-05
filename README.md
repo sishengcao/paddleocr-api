@@ -1348,3 +1348,170 @@ MIT License
 - [部署故障排查指南](DEPLOYMENT_TROUBLESHOOTING.md) - 🔧 网络受限环境部署经验汇总
 - [升级计划](UPGRADE_PLAN.md)
 - [API 文档](http://localhost:8000/docs)
+
+---
+
+## 成功案例：网络受限环境部署
+
+### 部署环境
+
+| 项目 | 详情 |
+|------|------|
+| 服务器 | Ubuntu 24.04.3 LTS |
+| IP 地址 | 192.168.124.134 |
+| 网络状态 | 严重受限（无法访问 Docker Hub 和大多数国内镜像源） |
+
+### 遇到的问题与解决方案
+
+#### 问题 1：Docker 镜像拉取失败
+
+**错误信息**：
+```
+Error: failed to resolve reference "docker.io/library/xxx": connection reset by peer
+```
+
+**尝试的方案**：
+- ✗ docker.xuanyuan.me → 401 Unauthorized
+- ✗ docker.1panel.live → 403 Forbidden
+- ✗ 阿里云镜像源 → 404 Not Found
+
+**最终解决方案**：在有网络的机器上手动下载并导入镜像
+```bash
+# 在有网络的机器上
+docker pull mysql:8.0 redis:7-alpine
+docker save mysql:8.0 redis:7-alpine -o paddleocr-images.tar
+scp paddleocr-images.tar user@server:/tmp/
+
+# 在服务器上
+docker load -i /tmp/paddleocr-images.tar
+```
+
+#### 问题 2：Docker 构建失败
+
+**错误信息**：
+```
+failed to solve: process "/bin/sh -c apt-get update" did not complete successfully: exit code: 100
+```
+
+**原因**：Docker 容器内网络比宿主机更受限，无法访问软件源
+
+**最终解决方案**：采用混合部署 - MySQL/Redis 使用 Docker，API 在宿主机运行
+```bash
+# MySQL 和 Redis 使用 Docker 容器
+docker run -d --name paddleocr-mysql -e 'MYSQL_ROOT_PASSWORD=!qwert' mysql:8.0
+docker run -d --name paddleocr-redis redis:7-alpine
+
+# PaddleOCR API 在宿主机运行
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/api.log 2>&1 &
+```
+
+#### 问题 3：libGL.so.1 缺失
+
+**错误信息**：
+```
+ImportError: libGL.so.1: cannot open shared object file: No such file or directory
+```
+
+**解决方案**：安装系统依赖
+```bash
+sudo apt install -y libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 libgomp1
+```
+
+**注意**：Ubuntu 24.04 使用 `libgl1` 而非 `libgl1-mesa-glx`
+
+#### 问题 4：MySQL 环境变量被清空
+
+**错误信息**：
+```
+MYSQL_ROOT_PASSWORD=  # 密码为空
+```
+
+**原因**：密码 `!qwert` 中的 `!` 被 shell 解释为历史命令扩展
+
+**解决方案**：使用单引号包裹
+```bash
+# 错误方式
+docker run -e MYSQL_ROOT_PASSWORD=!qwert ...
+
+# 正确方式
+docker run -e 'MYSQL_ROOT_PASSWORD=!qwert' ...
+```
+
+### 最终部署架构
+
+```
+┌─────────────────────────────────────────┐
+│          服务器 (Ubuntu 24.04)          │
+├─────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────┐   │
+│  │   MySQL      │  │    Redis     │   │
+│  │  (Docker)    │  │   (Docker)   │   │
+│  │  port:3306   │  │  port:6379   │   │
+│  └──────────────┘  └──────────────┘   │
+│         │                 │           │
+│         └─────────────────┘           │
+│                   │                   │
+│          ┌────────────────┐          │
+│          │  PaddleOCR API │          │
+│          │  (宿主机 Python)│          │
+│          │    port:8000    │          │
+│          └────────────────┘          │
+└─────────────────────────────────────────┘
+```
+
+### 验证部署
+
+```bash
+# 检查服务状态
+docker ps | grep -E "mysql|redis"
+ps aux | grep uvicorn
+
+# 测试 API
+curl http://192.168.124.134:8000/api/ocr/health
+
+# 预期响应
+{"status":"healthy","version":"1.0.0"}
+```
+
+### 服务管理
+
+```bash
+# 启动所有服务
+docker start paddleocr-mysql paddleocr-redis
+cd /opt/paddleocr-api
+source venv/bin/activate
+nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/api.log 2>&1 &
+
+# 停止所有服务
+pkill -f uvicorn
+docker stop paddleocr-mysql paddleocr-redis
+
+# 查看日志
+tail -f /tmp/api.log              # API 日志
+docker logs -f paddleocr-mysql    # MySQL 日志
+docker logs -f paddleocr-redis    # Redis 日志
+```
+
+### 访问地址
+
+| 服务 | 地址 | 说明 |
+|------|------|------|
+| API 服务 | http://192.168.124.134:8000 | 主要接口 |
+| API 文档 | http://192.168.124.134:8000/docs | Swagger UI |
+| 健康检查 | http://192.168.124.134:8000/api/ocr/health | 服务状态 |
+
+### 关键经验总结
+
+1. **镜像源可用性测试**：在配置镜像加速器前，先用 `curl -I` 测试可用性
+2. **混合部署**：网络受限时，Docker 容器与宿主机应用混合使用
+3. **密码转义**：包含特殊字符的密码必须使用单引号包裹
+4. **系统依赖**：Ubuntu 24.04 的包名与旧版本不同，注意区分
+
+### 完整部署过程
+
+详细的部署过程、故障排查和解决方案请参考：
+- **[部署故障排查指南](DEPLOYMENT_TROUBLESHOOTING.md)** - 包含完整的实战案例（第 11 节）
+- **[混合部署脚本](DEPLOYMENT_TROUBLESHOOTING.md#12-快速部署脚本混合部署)** - 一键部署脚本
