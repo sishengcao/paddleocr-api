@@ -242,6 +242,8 @@ ps aux | grep -E "uvicorn|celery"
 ### Docker Compose 部署（推荐）
 
 > **要求**: Docker Compose v2（检查版本：`docker compose version`）
+>
+> **遇到问题？** 查看 [部署故障排查指南](DEPLOYMENT_TROUBLESHOOTING.md) 获取详细解决方案
 
 使用 Docker Compose v2 可以一键启动所有服务（API + MySQL + Redis）：
 
@@ -1343,5 +1345,6 @@ MIT License
 ## 相关文档
 
 - [部署指南](DEPLOYMENT.md)
+- [部署故障排查指南](DEPLOYMENT_TROUBLESHOOTING.md) - 🔧 网络受限环境部署经验汇总
 - [升级计划](UPGRADE_PLAN.md)
 - [API 文档](http://localhost:8000/docs)
