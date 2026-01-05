@@ -551,6 +551,575 @@ print(f"导出文件: {export['file_path']}")
 
 ---
 
+## Java 调用示例
+
+### 单个识别
+
+```java
+import java.io.*;
+import java.net.http.*;
+import java.nio.file.Path;
+import java.nio.file.Files;
+
+public class OcrClient {
+
+    private static final String API_URL = "http://localhost:8000";
+
+    /**
+     * 识别单张图片
+     */
+    public static String recognizeImage(String imagePath) throws Exception {
+        HttpClient client = HttpClient.newHttpClient();
+
+        // 读取图片文件
+        byte[] fileContent = Files.readAllBytes(Path.of(imagePath));
+
+        // 构建 multipart 请求
+        String boundary = "----WebKitFormBoundary" + System.currentTimeMillis();
+        StringBuilder requestBody = new StringBuilder();
+
+        // 添加文件
+        requestBody.append("--").append(boundary).append("\r\n");
+        requestBody.append("Content-Disposition: form-data; name=\"file\"; filename=\"")
+                  .append(new File(imagePath).getName()).append("\"\r\n");
+        requestBody.append("Content-Type: image/jpeg\r\n\r\n");
+
+        byte[] requestBodyBytes = getMultipartBytes(
+            requestBody.toString(),
+            fileContent,
+            "\r\nlang=ch\r\nuse_angle_cls=true\r\n--" + boundary + "--\r\n"
+        );
+
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(API_URL + "/api/ocr/recognize"))
+            .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+            .POST(HttpRequest.BodyPublishers.ofByteArray(requestBodyBytes))
+            .build();
+
+        HttpResponse<String> response = client.send(request,
+            HttpResponse.BodyHandlers.ofString());
+
+        return response.body();
+    }
+
+    private static byte[] getMultipartBytes(String header, byte[] fileContent, String footer)
+            throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        baos.write(header.getBytes());
+        baos.write(fileContent);
+        baos.write(footer.getBytes());
+        return baos.toByteArray();
+    }
+
+    public static void main(String[] args) {
+        try {
+            String result = recognizeImage("test.jpg");
+            System.out.println("识别结果: " + result);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+### 使用 OkHttp（推荐）
+
+```java
+import okhttp3.*;
+import java.io.File;
+import java.io.IOException;
+
+public class OcrClientOkHttp {
+
+    private static final String API_URL = "http://localhost:8000";
+    private static final MediaType MEDIA_TYPE_JPEG = MediaType.parse("image/jpeg");
+
+    private final OkHttpClient client = new OkHttpClient();
+
+    /**
+     * 识别单张图片
+     */
+    public String recognizeImage(File imageFile) throws IOException {
+        RequestBody requestBody = new MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("file", imageFile.getName(),
+                RequestBody.create(imageFile, MEDIA_TYPE_JPEG))
+            .addFormDataPart("lang", "ch")
+            .addFormDataPart("use_angle_cls", "true")
+            .build();
+
+        Request request = new Request.Builder()
+            .url(API_URL + "/api/ocr/recognize")
+            .post(requestBody)
+            .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            return response.body().string();
+        }
+    }
+
+    /**
+     * 批量扫描（异步任务）
+     */
+    public String createBatchTask(String bookId, String directory) throws IOException {
+        String json = String.format("{\"book_id\":\"%s\",\"directory\":\"%s\",\"lang\":\"ch\",\"recursive\":true}",
+            bookId, directory);
+
+        RequestBody body = RequestBody.create(json, MediaType.parse("application/json"));
+        Request request = new Request.Builder()
+            .url(API_URL + "/api/ocr/batch/scan")
+            .post(body)
+            .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            return response.body().string();
+        }
+    }
+
+    /**
+     * 查询任务状态
+     */
+    public String getTaskStatus(String taskId) throws IOException {
+        Request request = new Request.Builder()
+            .url(API_URL + "/api/ocr/batch/status/" + taskId)
+            .get()
+            .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            return response.body().string();
+        }
+    }
+
+    public static void main(String[] args) {
+        OcrClientOkHttp client = new OcrClientOkHttp();
+        try {
+            // 单个识别
+            String result = client.recognizeImage(new File("test.jpg"));
+            System.out.println("识别结果: " + result);
+
+            // 创建批量任务
+            String taskResponse = client.createBatchTask("廖氏族谱", "/path/to/images");
+            System.out.println("任务创建: " + taskResponse);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+### 使用 Spring Boot RestTemplate
+
+```java
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.http.*;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
+import java.io.File;
+
+@Service
+public class OcrService {
+
+    private final String API_URL = "http://localhost:8000";
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    /**
+     * 识别单张图片
+     */
+    public OcrResponse recognizeImage(File imageFile) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("file", new FileSystemResource(imageFile));
+        body.add("lang", "ch");
+        body.add("use_angle_cls", "true");
+
+        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+
+        ResponseEntity<OcrResponse> response = restTemplate.postForEntity(
+            API_URL + "/api/ocr/recognize",
+            requestEntity,
+            OcrResponse.class
+        );
+
+        return response.getBody();
+    }
+
+    /**
+     * 批量扫描（创建任务）
+     */
+    public TaskResponse createBatchTask(BatchScanRequest request) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<BatchScanRequest> requestEntity = new HttpEntity<>(request, headers);
+
+        ResponseEntity<TaskResponse> response = restTemplate.postForEntity(
+            API_URL + "/api/ocr/batch/scan",
+            requestEntity,
+            TaskResponse.class
+        );
+
+        return response.getBody();
+    }
+
+    /**
+     * 启动任务
+     */
+    public void startTask(String taskId) {
+        restTemplate.postForEntity(
+            API_URL + "/api/ocr/batch/start/" + taskId,
+            null,
+            Void.class
+        );
+    }
+
+    /**
+     * 查询任务状态（支持轮询）
+     */
+    public TaskStatusResponse getTaskStatus(String taskId) {
+        return restTemplate.getForObject(
+            API_URL + "/api/ocr/batch/status/" + taskId,
+            TaskStatusResponse.class
+        );
+    }
+
+    /**
+     * 完整的批量扫描流程
+     */
+    public void processBatchScan(String bookId, String directory) {
+        // 1. 创建任务
+        BatchScanRequest scanRequest = new BatchScanRequest();
+        scanRequest.setBookId(bookId);
+        scanRequest.setDirectory(directory);
+        scanRequest.setLang("ch");
+        scanRequest.setRecursive(true);
+
+        TaskResponse taskResponse = createBatchTask(scanRequest);
+        String taskId = taskResponse.getTaskId();
+        System.out.println("任务已创建: " + taskId);
+
+        // 2. 启动任务
+        startTask(taskId);
+        System.out.println("任务已启动");
+
+        // 3. 轮询状态
+        while (true) {
+            TaskStatusResponse status = getTaskStatus(taskId);
+            System.out.println("进度: " + status.getProgress() + "%");
+
+            if ("completed".equals(status.getStatus())) {
+                System.out.println("任务完成!");
+                break;
+            } else if ("failed".equals(status.getStatus())) {
+                System.out.println("任务失败: " + status.getError());
+                break;
+            }
+
+            try {
+                Thread.sleep(5000); // 每5秒检查一次
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+    }
+}
+
+// 数据模型类
+class OcrResponse {
+    private boolean success;
+    private String text;
+    private double processingTime;
+    // getters and setters
+}
+
+class TaskResponse {
+    private String taskId;
+    private boolean success;
+    // getters and setters
+}
+
+class TaskStatusResponse {
+    private String taskId;
+    private String status;
+    private double progress;
+    private int processedFiles;
+    private int successFiles;
+    // getters and setters
+}
+```
+
+---
+
+## PaddleOCR 升级计划
+
+### 当前版本信息
+
+| 组件 | 当前版本 | 说明 |
+|------|----------|------|
+| PaddleOCR | 2.7.0+ | OCR 引擎核心 |
+| PaddlePaddle | 2.6.0 | 深度学习框架 |
+| 模型版本 | PP-OCRv4 | 最新中文识别模型 |
+
+### 升级检查清单
+
+在升级 PaddleOCR 之前，请检查以下内容：
+
+1. **查看 PaddleOCR 发布日志**
+   ```bash
+   # 查看最新版本
+   pip index versions paddleocr
+
+   # 访问发布页面
+   https://github.com/PaddlePaddle/PaddleOCR/releases
+   ```
+
+2. **检查新版本特性**
+   - 是否有新的识别模型
+   - 是否有性能提升
+   - 是否有 API 变更
+   - 是否有依赖更新
+
+3. **备份当前环境**
+   ```bash
+   # 导出当前依赖版本
+   pip freeze > requirements_backup.txt
+
+   # 备份模型文件
+   cp -r ~/.paddleocr ~/.paddleocr_backup
+   ```
+
+### 升级步骤
+
+#### 步骤 1: 停止服务
+
+```bash
+# 停止 API 服务
+pkill -f "uvicorn app.main:app"
+
+# 停止 Celery Worker
+pkill -f "celery.*worker"
+
+# 或使用 Docker
+docker-compose down
+```
+
+#### 步骤 2: 升级 PaddleOCR
+
+```bash
+# 激活虚拟环境
+source venv/bin/activate  # Linux/Mac
+# 或
+venv\Scripts\activate  # Windows
+
+# 卸载旧版本
+pip uninstall paddleocr paddlepaddle -y
+
+# 安装新版本
+pip install paddleocr --upgrade
+
+# 如果使用 GPU
+pip install paddlepaddle-gpu --upgrade
+```
+
+#### 步骤 3: 更新模型文件
+
+```bash
+# 删除旧模型缓存（可选，推荐）
+rm -rf ~/.paddleocr/whl/
+
+# 首次运行会自动下载新模型
+python3 -c "from paddleocr import PaddleOCR; ocr = PaddleOCR(use_angle_cls=True, lang='ch'); print('模型加载成功')"
+```
+
+#### 步骤 4: 更新依赖
+
+```bash
+# 更新所有依赖到兼容版本
+pip install --upgrade -r requirements.txt
+```
+
+#### 步骤 5: 测试验证
+
+```bash
+# 运行测试
+python3 -c "
+from paddleocr import PaddleOCR
+from app.ocr_service import ocr_service
+
+# 测试模型加载
+ocr = PaddleOCR(use_angle_cls=True, lang='ch')
+print('✓ PaddleOCR 模型加载成功')
+
+# 测试 OCR 服务
+result = ocr_service.recognize('test.jpg')
+print(f'✓ OCR 识别成功: {result[\"success\"]}')
+"
+```
+
+#### 步骤 6: 启动服务
+
+```bash
+# 启动所有服务
+./start_services.sh
+
+# 或使用 Docker
+docker-compose up -d
+```
+
+#### 步骤 7: 验证升级
+
+```bash
+# 检查服务健康
+curl http://localhost:8000/api/ocr/health
+
+# 测试识别接口
+curl -X POST "http://localhost:8000/api/ocr/recognize" \
+  -F "file=@test.jpg" \
+  -F "lang=ch"
+```
+
+### 版本兼容性
+
+| PaddleOCR 版本 | PaddlePaddle 版本 | Python 版本 | 状态 |
+|----------------|-------------------|-------------|------|
+| 2.7.0 | 2.6.0 | 3.8-3.11 | ✅ 推荐 |
+| 2.8.0+ | 2.6.0+ | 3.8-3.11 | ⚠️ 测试中 |
+
+### 模型升级
+
+#### PP-OCRv3 → PP-OCRv4
+
+PP-OCRv4 是最新版本，相比 PP-OCRv3 有以下改进：
+
+| 特性 | PP-OCRv3 | PP-OCRv4 |
+|------|----------|----------|
+| 识别准确率 | 95.0% | 97.5% |
+| 推理速度 | 基准 | +20% |
+| 模型大小 | 基准 | 相同 |
+| 支持语言 | 80+ | 80+ |
+
+自动使用 PP-OCRv4：
+```python
+from paddleocr import PaddleOCR
+
+# 默认使用 PP-OCRv4
+ocr = PaddleOCR(use_angle_cls=True, lang='ch')
+```
+
+#### 使用自定义模型
+
+如果需要使用特定版本的模型：
+
+```python
+from paddleocr import PaddleOCR
+
+# 指定模型路径
+ocr = PaddleOCR(
+    det_model_dir='/path/to/det_model',
+    rec_model_dir='/path/to/rec_model',
+    cls_model_dir='/path/to/cls_model',
+    use_angle_cls=True,
+    lang='ch'
+)
+```
+
+### 回滚方案
+
+如果升级后出现问题，可以快速回滚：
+
+```bash
+# 1. 停止服务
+pkill -f "uvicorn"
+pkill -f "celery"
+
+# 2. 恢复旧版本
+pip uninstall paddleocr paddlepaddle -y
+pip install paddleocr==2.7.0
+pip install paddlepaddle==2.6.0
+
+# 3. 恢复模型
+rm -rf ~/.paddleocr/whl/
+cp -r ~/.paddleocr_backup ~/.paddleocr/
+
+# 4. 重启服务
+./start_services.sh
+```
+
+### 性能对比
+
+升级后建议进行性能测试：
+
+```python
+import time
+from app.ocr_service import ocr_service, OcrOptions
+
+# 测试图片
+test_images = ['test1.jpg', 'test2.jpg', 'test3.jpg']
+
+options = OcrOptions(
+    lang='ch',
+    use_angle_cls=True,
+    return_details=True
+)
+
+for img in test_images:
+    start = time.time()
+    result = ocr_service.recognize(img, options)
+    elapsed = time.time() - start
+
+    print(f"{img}: {elapsed:.2f}秒, 成功: {result['success']}")
+```
+
+### 升级日志模板
+
+建议记录每次升级的详细信息：
+
+```markdown
+## 升级记录 - YYYY-MM-DD
+
+### 升级前版本
+- PaddleOCR: 2.6.x
+- PaddlePaddle: 2.5.x
+
+### 升级后版本
+- PaddleOCR: 2.7.0
+- PaddlePaddle: 2.6.0
+
+### 升级原因
+- [ ] 新功能需求
+- [ ] 性能提升
+- [ ] Bug 修复
+- [ ] 安全更新
+
+### 升级过程
+1. 备份完成
+2. 停止服务
+3. 更新依赖
+4. 测试验证
+5. 重启服务
+
+### 遇到的问题
+- 无
+
+### 验证结果
+- 单个识别: ✅ 通过
+- 批量扫描: ✅ 通过
+- 性能测试: ✅ 通过
+- 准确率对比: ✅ 提升 2%
+
+### 回滚计划
+如需回滚，执行以下命令：
+\`\`\`bash
+pip install paddleocr==2.6.x
+\`\`\`
+```
+
+---
+
 ## 配置文件说明
 
 ### 环境变量 (.env)
