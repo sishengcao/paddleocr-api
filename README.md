@@ -253,16 +253,20 @@ ps aux | grep -E "uvicorn|celery"
 git clone https://github.com/sishengcao/paddleocr-api.git
 cd paddleocr-api
 
-# 2. 启动所有服务
+# 2. 创建环境变量文件
+cp .env.example .env
+# 如果 .env.example 不存在，手动创建 .env 文件，参考下方配置
+
+# 3. 启动所有服务
 docker compose up -d
 
-# 3. 查看日志
+# 4. 查看日志
 docker compose logs -f
 
-# 4. 查看服务状态
+# 5. 查看服务状态
 docker compose ps
 
-# 5. 停止服务
+# 6. 停止服务
 docker compose down
 ```
 
@@ -1151,33 +1155,74 @@ pip install paddleocr==2.6.x
 
 ## 常见问题
 
-### 1. 首次启动慢
+### 1. .env 文件不存在
+**错误**: `env file .env not found`
+
+**解决方法**:
+```bash
+# 方式1：复制示例文件
+cp .env.example .env
+
+# 方式2：手动创建
+cat > .env << 'EOF'
+# 应用配置
+APP_NAME=PaddleOCR API
+APP_VERSION=2.0.0
+DEBUG=false
+LOG_LEVEL=INFO
+
+# 服务器配置
+HOST=0.0.0.0
+PORT=8000
+WORKERS=4
+
+# 数据库配置（Docker 部署使用服务名）
+DB_HOST=mysql
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=!qwert
+DB_NAME=paddleocr_api
+
+# Redis 配置
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_PASSWORD=
+
+# OCR 配置
+OCR_LANG=ch
+OCR_USE_GPU=false
+OCR_USE_ANGLE_CLS=true
+EOF
+```
+
+### 2. 首次启动慢
 首次启动会下载 PaddleOCR 模型文件（约 10MB），请耐心等待。
 
-### 2. GPU 加速
+### 3. GPU 加速
 ```bash
 pip uninstall paddlepaddle
 pip install paddlepaddle-gpu
 ```
 然后修改 `.env`：`OCR_USE_GPU=true`
 
-### 3. 端口被占用
+### 4. 端口被占用
 修改 `.env` 文件中的 `PORT` 配置。
 
-### 4. 数据库连接失败
+### 5. 数据库连接失败
 检查：
 - MySQL 服务是否启动
 - 数据库用户名密码是否正确
 - 数据库是否已创建
 - 防火墙是否开放端口
 
-### 5. Celery Worker 不处理任务
+### 6. Celery Worker 不处理任务
 检查：
 - Redis 服务是否启动
 - Celery Worker 是否正常运行
 - 查看日志：`tail -f logs/celery_worker.log`
 
-### 6. 文件扩展名不匹配
+### 7. 文件扩展名不匹配
 确保 `.env` 中的 `file_patterns` 包含实际文件的扩展名，包括大小写：
 ```json
 ["*.jpg", "*.jpeg", "*.png", "*.JPG", "*.JPEG", "*.PNG"]
