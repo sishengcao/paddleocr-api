@@ -1,0 +1,96 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "paddleocr-api"
+version = "2.0.0"
+description = "PaddleOCR API 服务 - 支持单个识别和批量扫描"
+readme = "README.md"
+license = {text = "MIT License"}
+requires-python = ">=3.8"
+authors = [
+    {name = "sishengcao", email = "sishengcao@users.noreply.github.com"}
+]
+maintainers = [
+    {name = "sishengcao", email = "sishengcao@users.noreply.github.com"}
+]
+keywords = ["ocr", "paddleocr", "api", "fastapi", "image-recognition", "chinese-ocr"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "paddleocr>=2.7.0",
+    "paddlepaddle>=2.6.0",
+    "python-multipart>=0.0.6",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "sqlalchemy>=2.0.0",
+    "pymysql>=1.1.0",
+    "celery>=5.3.0",
+    "redis>=5.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+]
+gpu = [
+    "paddlepaddle-gpu>=2.6.0",
+]
+all = [
+    "paddleocr-api[dev,gpu]",
+]
+
+[project.urls]
+Homepage = "https://github.com/sishengcao/paddleocr-api"
+Documentation = "https://github.com/sishengcao/paddleocr-api/blob/master/README.md"
+Repository = "https://github.com/sishengcao/paddleocr-api.git"
+Issues = "https://github.com/sishengcao/paddleocr-api/issues"
+Changelog = "https://github.com/sishengcao/paddleocr-api/blob/master/VERSION_MANAGEMENT.md"
+
+[project.scripts]
+paddleocr-api = "app.main:app"
+
+[tool.setuptools]
+packages = ["app"]
+
+[tool.setuptools.package-data]
+"app" = ["static/*", "templates/*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py38', 'py39', 'py310', 'py311']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
