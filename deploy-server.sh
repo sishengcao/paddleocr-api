@@ -5,6 +5,31 @@
 echo "=== PaddleOCR API 服务器更新脚本 ==="
 echo ""
 
+# 检查 Docker 镜像配置
+echo "检查 Docker 镜像加速配置..."
+if ! sudo grep -q "registry-mirrors" /etc/docker/daemon.json 2>/dev/null; then
+    echo "配置 Docker 镜像加速器..."
+    sudo mkdir -p /etc/docker
+    sudo tee /etc/docker/daemon.json > /dev/null << 'EOF'
+{
+  "registry-mirrors": [
+    "https://docker.1panel.live",
+    "https://docker.xuanyuan.me"
+  ],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+EOF
+    sudo systemctl daemon-reload
+    sudo systemctl restart docker
+    echo "Docker 镜像加速器配置完成"
+else
+    echo "Docker 镜像加速器已配置"
+fi
+
 cd /opt/paddleocr-api
 
 echo "1. 拉取最新代码..."

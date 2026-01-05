@@ -257,16 +257,30 @@ cd paddleocr-api
 cp .env.example .env
 # 如果 .env.example 不存在，手动创建 .env 文件，参考下方配置
 
-# 3. 启动所有服务
+# 3. (可选) 配置 Docker 镜像加速器
+# 如果拉取镜像失败，执行以下命令：
+sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json > /dev/null << 'EOF'
+{
+  "registry-mirrors": [
+    "https://docker.1panel.live",
+    "https://docker.xuanyuan.me"
+  ]
+}
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+
+# 4. 启动所有服务
 docker compose up -d
 
-# 4. 查看日志
+# 5. 查看日志
 docker compose logs -f
 
-# 5. 查看服务状态
+# 6. 查看服务状态
 docker compose ps
 
-# 6. 停止服务
+# 7. 停止服务
 docker compose down
 ```
 
@@ -1226,6 +1240,27 @@ pip install paddlepaddle-gpu
 确保 `.env` 中的 `file_patterns` 包含实际文件的扩展名，包括大小写：
 ```json
 ["*.jpg", "*.jpeg", "*.png", "*.JPG", "*.JPEG", "*.PNG"]
+```
+
+### 8. Docker 镜像拉取失败
+**错误**: `failed to resolve reference "docker.io/library/xxx": connection reset by peer`
+
+**原因**: 无法访问 Docker Hub (registry-1.docker.io)
+
+**解决方法 - 配置镜像加速器**:
+```bash
+sudo mkdir -p /etc/docker
+sudo tee /etc/docker/daemon.json > /dev/null << 'EOF'
+{
+  "registry-mirrors": [
+    "https://docker.1panel.live",
+    "https://docker.xuanyuan.me"
+  ]
+}
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+docker compose up -d
 ```
 
 ---
