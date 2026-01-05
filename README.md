@@ -48,12 +48,15 @@ cd paddleocr-api
 
 # 2. 创建环境变量文件
 cp .env.example .env
-# 如果 .env.example 不存在，手动创建 .env 文件
+# 如果 .env.example 不存在，参考配置说明.md手动创建 .env 文件
 
-# 3. 启动所有服务
+# 3. (可选) 配置 Docker 镜像加速器
+# 如果拉取镜像失败，参考部署故障排查.md配置镜像加速器
+
+# 4. 启动所有服务
 docker compose up -d
 
-# 4. 查看日志
+# 5. 查看日志
 docker compose logs -f
 ```
 
