@@ -1,6 +1,6 @@
 # PaddleOCR API - Docker 镜像
-# 基础镜像：使用 Python 3.10 官方镜像
-FROM python:3.10-slim
+# 基础镜像：使用阿里云 Python 3.10 镜像（国内加速）
+FROM registry.cn-hangzhou.aliyuncs.com/acs/python:3.10-slim
 
 # 设置工作目录
 WORKDIR /app
