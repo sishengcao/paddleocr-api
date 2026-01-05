@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>批量目录识别 - PaddleOCR API</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+            font-family: monospace;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .status-card {
+            display: none;
+        }
+
+        .status-card.active {
+            display: block;
+        }
+
+        .progress-container {
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 10px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-processing {
+            background: #cfe2ff;
+            color: #084298;
+        }
+
+        .status-completed {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+
+        .status-failed {
+            background: #f8d7da;
+            color: #842029;
+        }
+
+        .log-container {
+            background: #1e1e1e;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-time {
+            color: #888;
+        }
+
+        .log-success {
+            color: #4ade80;
+        }
+
+        .log-error {
+            color: #f87171;
+        }
+
+        .log-info {
+            color: #60a5fa;
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .back-link {
+            display: inline-block;
+            color: #667eea;
+            text-decoration: none;
+            margin-bottom: 20px;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 600px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← 返回首页</a>
+
+        <div class="header">
+            <h1>📁 批量目录识别</h1>
+            <p>选择目录，自动扫描并识别所有图片文件</p>
+        </div>
+
+        <!-- 配置卡片 -->
+        <div class="card" id="configCard">
+            <div class="form-group">
+                <label for="directory">目录路径 *</label>
+                <input type="text" id="directory" placeholder="例如: /mnt/d/scans/李氏族谱 或 D:\scans\李氏族谱">
+                <p class="help-text">输入服务器上的绝对路径</p>
+            </div>
+
+            <div class="form-group">
+                <label for="bookId">书籍标识 *</label>
+                <input type="text" id="bookId" placeholder="例如: 李氏族谱卷一">
+                <p class="help-text">用于标识和分类识别结果</p>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="textLayout">文字排版</label>
+                    <select id="textLayout">
+                        <option value="horizontal">横排从左到右</option>
+                        <option value="vertical_rl" selected>竖排从右到左（族谱）</option>
+                        <option value="vertical_lr">竖排从左到右</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="outputFormat">输出格式</label>
+                    <select id="outputFormat">
+                        <option value="line_by_line">逐行输出</option>
+                        <option value="char_by_char">逐字输出</option>
+                        <option value="column_by_column">逐列输出</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>
+                        <span class="checkbox-group">
+                            <input type="checkbox" id="recursive" checked>
+                            递归扫描子目录
+                        </span>
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <span class="checkbox-group">
+                            <input type="checkbox" id="useAngleCls" checked>
+                            启用角度分类
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="filePatterns">文件匹配模式（可选）</label>
+                <textarea id="filePatterns" placeholder='["*.jpg", "*.png", "*.jpeg", "*.bmp"]'>["*.jpg", "*.png", "*.jpeg", "*.bmp"]</textarea>
+                <p class="help-text">JSON 数组格式，指定要扫描的文件类型</p>
+            </div>
+
+            <button class="btn btn-primary" id="startBtn" onclick="startBatchScan()">
+                🚀 开始批量识别
+            </button>
+        </div>
+
+        <!-- 状态卡片 -->
+        <div class="card status-card" id="statusCard">
+            <h2 style="margin-bottom: 20px;">任务状态</h2>
+
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">总文件数</div>
+                    <div class="stat-value" id="totalFiles">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">已处理</div>
+                    <div class="stat-value" id="processedFiles">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">成功</div>
+                    <div class="stat-value" id="successFiles" style="color: #22c55e;">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">失败</div>
+                    <div class="stat-value" id="failedFiles" style="color: #ef4444;">0</div>
+                </div>
+            </div>
+
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">准备中...</div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin: 20px 0;">
+                <div>
+                    <span style="color: #666;">任务状态：</span>
+                    <span class="status-badge status-pending" id="statusBadge">待处理</span>
+                </div>
+                <div style="color: #666; font-size: 14px;">
+                    任务ID: <code id="taskIdDisplay">-</code>
+                </div>
+            </div>
+
+            <div class="log-container" id="logContainer">
+                <div class="log-entry log-info">等待任务开始...</div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="refreshStatus()">
+                    🔄 刷新状态
+                </button>
+                <button class="btn btn-secondary" onclick="exportResults()">
+                    📥 导出结果
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentTaskId = null;
+        let statusInterval = null;
+
+        async function startBatchScan() {
+            const directory = document.getElementById('directory').value.trim();
+            const bookId = document.getElementById('bookId').value.trim();
+
+            if (!directory || !bookId) {
+                alert('请填写目录路径和书籍标识');
+                return;
+            }
+
+            const filePatterns = document.getElementById('filePatterns').value.trim();
+            let patterns = ['*.jpg', '*.png', '*.jpeg', '*.bmp'];
+
+            try {
+                if (filePatterns) {
+                    patterns = JSON.parse(filePatterns);
+                }
+            } catch (e) {
+                alert('文件匹配模式格式错误，请使用有效的 JSON 数组格式');
+                return;
+            }
+
+            const requestData = {
+                directory: directory,
+                book_id: bookId,
+                text_layout: document.getElementById('textLayout').value,
+                output_format: document.getElementById('outputFormat').value,
+                recursive: document.getElementById('recursive').checked,
+                use_angle_cls: document.getElementById('useAngleCls').checked,
+                file_patterns: patterns
+            };
+
+            const startBtn = document.getElementById('startBtn');
+            startBtn.disabled = true;
+            startBtn.textContent = '⏳ 创建任务中...';
+
+            try {
+                const response = await fetch('/api/ocr/batch/scan', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const result = await response.json();
+
+                if (result.success || result.task_id) {
+                    currentTaskId = result.task_id;
+                    showStatusCard();
+                    addLog('任务创建成功！', 'success');
+                    addLog(`共发现 ${result.total_files} 个文件`, 'info');
+
+                    // 开始轮询状态
+                    startStatusPolling();
+                } else {
+                    alert('创建任务失败: ' + (result.message || '未知错误'));
+                    startBtn.disabled = false;
+                    startBtn.textContent = '🚀 开始批量识别';
+                }
+            } catch (error) {
+                alert('请求失败: ' + error.message);
+                startBtn.disabled = false;
+                startBtn.textContent = '🚀 开始批量识别';
+            }
+        }
+
+        function showStatusCard() {
+            document.getElementById('configCard').style.display = 'none';
+            document.getElementById('statusCard').classList.add('active');
+            document.getElementById('taskIdDisplay').textContent = currentTaskId.substring(0, 8) + '...';
+        }
+
+        async function refreshStatus() {
+            if (!currentTaskId) return;
+
+            try {
+                const response = await fetch(`/api/ocr/batch/status/${currentTaskId}`);
+                const status = await response.json();
+                updateStatusUI(status);
+            } catch (error) {
+                addLog('获取状态失败: ' + error.message, 'error');
+            }
+        }
+
+        function startStatusPolling() {
+            refreshStatus();
+            statusInterval = setInterval(refreshStatus, 3000);
+        }
+
+        function updateStatusUI(status) {
+            // 更新统计数据
+            document.getElementById('totalFiles').textContent = status.total_files || 0;
+            document.getElementById('processedFiles').textContent = status.processed_files || 0;
+            document.getElementById('successFiles').textContent = status.success_files || 0;
+            document.getElementById('failedFiles').textContent = status.failed_files || 0;
+
+            // 更新进度条
+            const progress = status.progress || 0;
+            document.getElementById('progressFill').style.width = progress + '%';
+            document.getElementById('progressText').textContent = `进度: ${progress.toFixed(1)}%`;
+
+            // 更新状态标签
+            const statusBadge = document.getElementById('statusBadge');
+            statusBadge.className = 'status-badge';
+
+            switch (status.status) {
+                case 'pending':
+                case 'queued':
+                    statusBadge.classList.add('status-pending');
+                    statusBadge.textContent = '排队中';
+                    break;
+                case 'processing':
+                    statusBadge.classList.add('status-processing');
+                    statusBadge.textContent = '处理中';
+                    break;
+                case 'completed':
+                    statusBadge.classList.add('status-completed');
+                    statusBadge.textContent = '已完成';
+                    addLog('✅ 任务完成！', 'success');
+                    clearInterval(statusInterval);
+                    break;
+                case 'failed':
+                case 'cancelled':
+                    statusBadge.classList.add('status-failed');
+                    statusBadge.textContent = status.status === 'failed' ? '失败' : '已取消';
+                    clearInterval(statusInterval);
+                    break;
+            }
+
+            // 显示最近处理的页面
+            if (status.recent_pages && status.recent_pages.length > 0) {
+                const latest = status.recent_pages[0];
+                if (latest.success) {
+                    addLog(`✓ ${latest.file_name} (页${latest.page_number})`, 'success');
+                } else {
+                    addLog(`✗ ${latest.file_name} (识别失败)`, 'error');
+                }
+            }
+        }
+
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const time = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${type}">${message}</span>`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        async function exportResults() {
+            if (!currentTaskId) {
+                alert('没有可导出的任务');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/ocr/batch/export?task_id=${currentTaskId}&format=json`, {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `batch_scan_${currentTaskId}.json`;
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    addLog('导出成功', 'success');
+                } else {
+                    addLog('导出失败', 'error');
+                }
+            } catch (error) {
+                addLog('导出错误: ' + error.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>

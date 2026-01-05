@@ -233,6 +233,12 @@ class BatchScanRequest(BaseModel):
         default=["*.jpg", "*.jpeg", "*.png", "*.bmp", "*.pdf"],
         description="文件匹配模式（glob模式，只处理匹配的文件）"
     )
+    priority: int = Field(
+        default=5,
+        description="任务优先级（1-10，数字越大优先级越高）",
+        ge=1,
+        le=10
+    )
 
 
 class BatchScanTask(BaseModel):

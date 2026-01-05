@@ -93,7 +93,8 @@ def custom_openapi():
         {"name": "OCR", "description": "文字识别接口"},
         {"name": "批量扫描", "description": "批量扫描目录，适合族谱数字化"},
         {"name": "系统", "description": "系统健康检查和状态查询"},
-        {"name": "根路径", "description": "根路径和首页"}
+        {"name": "根路径", "description": "根路径和首页"},
+        {"name": "Genealogy", "description": "族谱数据查询接口（供 Java Spring Boot 调用）"}
     ]
 
     # 服务器信息
@@ -167,10 +168,10 @@ async def docs_redirect():
     return RedirectResponse(url="/docs-enhanced")
 
 
-@app.get("/", tags=["根路径"])
-async def root():
-    """根路径 - 重定向到识别工具页面"""
-    return FileResponse(STATIC_DIR / "index.html")
+@app.get("/batch", include_in_schema=False)
+async def batch_page():
+    """批量识别页面"""
+    return FileResponse(STATIC_DIR / "batch.html")
 
 
 @app.get("/api/ocr/health", response_model=HealthResponse, tags=["系统"])
@@ -362,7 +363,7 @@ async def recognize_images_batch(
 
 # ============ 批量扫描 API 端点 ============
 
-@app.post("/api/ocr/batch/scan", response_model=BatchScanResponse, tags=["批量扫描"])
+@app.post("/api/ocr/batch/scan", tags=["批量扫描"])
 async def create_batch_scan(request: BatchScanRequest):
     """
     创建批量扫描任务
@@ -384,21 +385,35 @@ async def create_batch_scan(request: BatchScanRequest):
     logger.info(f"创建批量扫描任务 - 目录: {request.directory}, 书籍ID: {request.book_id}")
 
     try:
-        task = batch_scan_service.create_task(request)
+        result = batch_scan_service.create_task(request)
 
-        # 自动启动任务
-        batch_scan_service.start_task(task.task_id)
+        # 检查是否成功
+        if result.get("success"):
+            # 自动提交到 Celery 队列
+            task_id = result["task_id"]
+            celery_success = batch_scan_service.submit_to_celery(task_id)
 
-        return BatchScanResponse(
-            success=True,
-            task_id=task.task_id,
-            message=f"批量扫描任务已创建并启动，共 {task.total_files} 个文件"
-        )
+            if celery_success:
+                result["message"] = f"批量扫描任务已创建并提交，共 {result.get('total_files', 0)} 个文件"
+                logger.info(f"任务创建成功: {task_id}")
+            else:
+                result["message"] = "任务创建成功但提交队列失败，请手动启动"
+                logger.warning(f"任务创建成功但提交失败: {task_id}")
+        else:
+            logger.error(f"任务创建失败: {result.get('error')} - {result.get('message')}")
 
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        return JSONResponse(content=result, status_code=201 if result.get("success") else 400)
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"创建任务失败: {str(e)}")
+        logger.error(f"批量扫描 API 异常 - 目录: {request.directory}, 错误: {str(e)}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": "INTERNAL_ERROR",
+                "message": f"服务器内部错误: {str(e)}"
+            }
+        )
 
 
 @app.post("/api/ocr/batch/start/{task_id}", tags=["批量扫描"])
@@ -410,7 +425,7 @@ async def start_batch_scan(task_id: str):
     return {"success": True, "message": "任务已启动"}
 
 
-@app.get("/api/ocr/batch/status/{task_id}", response_model=TaskStatusResponse, tags=["批量扫描"])
+@app.get("/api/ocr/batch/status/{task_id}", tags=["批量扫描"])
 async def get_batch_scan_status(task_id: str):
     """获取批量扫描任务状态"""
     status = batch_scan_service.get_task_status(task_id)
