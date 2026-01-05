@@ -1247,20 +1247,71 @@ pip install paddlepaddle-gpu
 
 **原因**: 无法访问 Docker Hub (registry-1.docker.io)
 
-**解决方法 - 配置镜像加速器**:
+**解决方法**：
+
+**方法1: 配置镜像加速器**
 ```bash
 sudo mkdir -p /etc/docker
 sudo tee /etc/docker/daemon.json > /dev/null << 'EOF'
 {
   "registry-mirrors": [
     "https://docker.1panel.live",
-    "https://docker.xuanyuan.me"
+    "https://docker.xuanyuan.me",
+    "https://registry.cn-hangzhou.aliyuncs.com"
   ]
 }
 EOF
 sudo systemctl daemon-reload
 sudo systemctl restart docker
 docker compose up -d
+```
+
+**方法2: 使用 VPN/代理**
+```bash
+# 为 Docker 配置代理
+sudo mkdir -p /etc/systemd/system/docker.service.d
+sudo tee /etc/systemd/system/docker.service.d/http-proxy.conf > /dev/null << 'EOF'
+[Service]
+Environment="HTTP_PROXY=http://127.0.0.1:代理端口"
+Environment="HTTPS_PROXY=http://127.0.0.1:代理端口"
+Environment="NO_PROXY=localhost,127.0.0.1"
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
+**方法3: 手动下载并导入镜像**
+```bash
+# 在有网络的机器上下载
+docker pull redis:7-alpine
+docker pull mysql:8.0
+docker pull python:3.10-slim
+
+# 导出镜像
+docker save redis:7-alpine mysql:8.0 python:3.10-slim -o paddleocr-images.tar
+
+# 传输到目标服务器
+scp paddleocr-images.tar user@server:/tmp/
+
+# 在目标服务器上导入
+docker load -i /tmp/paddleocr-images.tar
+docker compose up -d
+```
+
+**方法4: 使用国内镜像仓库**
+修改 `docker-compose.yml`，替换镜像源：
+```yaml
+services:
+  mysql:
+    image: registry.cn-hangzhou.aliyuncs.com/library/mysql:8.0
+  redis:
+    image: registry.cn-hangzhou.aliyuncs.com/library/redis:7-alpine
+  paddleocr-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # 或使用预构建镜像
+    image: registry.cn-hangzhou.aliyuncs.com/你的命名空间/paddleocr-api:latest
 ```
 
 ---
