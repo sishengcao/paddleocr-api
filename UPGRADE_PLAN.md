@@ -391,5 +391,5 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 celery -A app.workers.celery_worker worker --loglevel=info --concurrency=4
 
 # 或使用 Docker Compose
-docker-compose up -d
+docker compose up -d
 ```

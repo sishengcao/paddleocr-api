@@ -241,24 +241,29 @@ ps aux | grep -E "uvicorn|celery"
 
 ### Docker Compose 部署（推荐）
 
-使用 Docker Compose 可以一键启动所有服务（API + MySQL + Redis）：
+> **要求**: Docker Compose v2（检查版本：`docker compose version`）
+
+使用 Docker Compose v2 可以一键启动所有服务（API + MySQL + Redis）：
 
 ```bash
+# 前置要求：Docker Compose v2
+# 检查版本：docker compose version
+
 # 1. 克隆项目
 git clone https://github.com/sishengcao/paddleocr-api.git
 cd paddleocr-api
 
 # 2. 启动所有服务
-docker-compose up -d
+docker compose up -d
 
 # 3. 查看日志
-docker-compose logs -f
+docker compose logs -f
 
 # 4. 查看服务状态
-docker-compose ps
+docker compose ps
 
 # 5. 停止服务
-docker-compose down
+docker compose down
 ```
 
 **Docker Compose 服务架构**：
@@ -326,16 +331,16 @@ tail -f /tmp/celery.log
 
 ```bash
 # API 服务日志
-docker-compose logs -f paddleocr-api
+docker compose logs -f paddleocr-api
 
 # Celery Worker 日志
-docker-compose logs -f celery-worker
+docker compose logs -f celery-worker
 
 # MySQL 日志
-docker-compose logs -f mysql
+docker compose logs -f mysql
 
 # Redis 日志
-docker-compose logs -f redis
+docker compose logs -f redis
 ```
 
 ### Windows
@@ -904,7 +909,7 @@ pkill -f "uvicorn app.main:app"
 pkill -f "celery.*worker"
 
 # 或使用 Docker
-docker-compose down
+docker compose down
 ```
 
 #### 步骤 2: 升级 PaddleOCR
@@ -967,7 +972,7 @@ print(f'✓ OCR 识别成功: {result[\"success\"]}')
 ./start_services.sh
 
 # 或使用 Docker
-docker-compose up -d
+docker compose up -d
 ```
 
 #### 步骤 7: 验证升级
