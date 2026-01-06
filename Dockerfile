@@ -19,19 +19,7 @@ RUN echo "nameserver 8.8.8.8" > /etc/resolv.conf && \
         echo "Debian 版本: $CODENAME"; \
         if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
             echo "配置新版 debian.sources"; \
-            cat > /etc/apt/sources.list.d/debian.sources <<EOF
-Types: deb
-URIs: https://mirrors.tuna.tsinghua.edu.cn/debian
-Suites: $CODENAME $CODENAME-updates $CODENAME-backports
-Components: main contrib non-free non-free-firmware
-Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
-
-Types: deb
-URIs: https://mirrors.tuna.tsinghua.edu.cn/debian-security
-Suites: $CODENAME-security
-Components: main contrib non-free non-free-firmware
-Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
-EOF
+            printf "Types: deb\nURIs: https://mirrors.tuna.tsinghua.edu.cn/debian\nSuites: $CODENAME $CODENAME-updates $CODENAME-backports\nComponents: main contrib non-free non-free-firmware\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\n\nTypes: deb\nURIs: https://mirrors.tuna.tsinghua.edu.cn/debian-security\nSuites: $CODENAME-security\nComponents: main contrib non-free non-free-firmware\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\n" > /etc/apt/sources.list.d/debian.sources; \
         else \
             echo "配置传统 sources.list"; \
             sed -i "s|deb.debian.org|mirrors.tuna.tsinghua.edu.cn|g" /etc/apt/sources.list || true; \

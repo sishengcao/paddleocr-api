@@ -10,24 +10,7 @@ WORKDIR /app
 
 # 配置 Maven 国内镜像源（阿里云）
 RUN mkdir -p /root/.m2 && \
-    cat > /root/.m2/settings.xml <<EOF
-<settings>
-  <mirrors>
-    <mirror>
-      <id>aliyun-maven</id>
-      <name>Aliyun Maven Mirror</name>
-      <url>https://maven.aliyun.com/repository/public</url>
-      <mirrorOf>central</mirrorOf>
-    </mirror>
-    <mirror>
-      <id>aliyun-spring</id>
-      <name>Aliyun Spring Mirror</name>
-      <url>https://maven.aliyun.com/repository/spring</url>
-      <mirrorOf>spring-releases</mirrorOf>
-    </mirror>
-  </mirrors>
-</settings>
-EOF
+    printf '<settings>\n  <mirrors>\n    <mirror>\n      <id>aliyun-maven</id>\n      <name>Aliyun Maven Mirror</name>\n      <url>https://maven.aliyun.com/repository/public</url>\n      <mirrorOf>central</mirrorOf>\n    </mirror>\n    <mirror>\n      <id>aliyun-spring</id>\n      <name>Aliyun Spring Mirror</name>\n      <url>https://maven.aliyun.com/repository/spring</url>\n      <mirrorOf>spring-releases</mirrorOf>\n    </mirror>\n  </mirrors>\n</settings>\n' > /root/.m2/settings.xml
 
 # 复制 pom.xml（利用 Docker 缓存）
 COPY pom.xml .
