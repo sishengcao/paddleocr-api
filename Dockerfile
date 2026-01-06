@@ -14,8 +14,6 @@ ENV PYTHONUNBUFFERED=1 \
 # 配置 DNS 和国内软件源
 RUN echo "nameserver 8.8.8.8" > /etc/resolv.conf && \
     echo "nameserver 114.114.114.114" >> /etc/resolv.conf && \
-
-# 检测 Debian 版本并配置合适的镜像源
     if [ -f /etc/os-release ]; then \
         CODENAME=$(grep "^VERSION_CODENAME=" /etc/os-release | cut -d'=' -f2); \
         echo "Debian 版本: $CODENAME"; \
@@ -40,8 +38,6 @@ EOF
             sed -i "s|security.debian.org|mirrors.tuna.tsinghua.edu.cn|g" /etc/apt/sources.list || true; \
         fi \
     fi && \
-
-# 测试网络连通性
     echo "测试网络连通性..." && \
     ping -c 2 -W 3 8.8.8.8 > /dev/null 2>&1 || echo "警告: 无法 ping 通 8.8.8.8" && \
     curl -s --connect-timeout 5 https://mirrors.tuna.tsinghua.edu.cn > /dev/null 2>&1 || echo "警告: 无法连接到清华镜像源"
