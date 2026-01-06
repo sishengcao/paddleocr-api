@@ -8,6 +8,27 @@ FROM maven:3.9-eclipse-temurin-17 AS build-stage
 # 设置工作目录
 WORKDIR /app
 
+# 配置 Maven 国内镜像源（阿里云）
+RUN mkdir -p /root/.m2 && \
+    cat > /root/.m2/settings.xml <<EOF
+<settings>
+  <mirrors>
+    <mirror>
+      <id>aliyun-maven</id>
+      <name>Aliyun Maven Mirror</name>
+      <url>https://maven.aliyun.com/repository/public</url>
+      <mirrorOf>central</mirrorOf>
+    </mirror>
+    <mirror>
+      <id>aliyun-spring</id>
+      <name>Aliyun Spring Mirror</name>
+      <url>https://maven.aliyun.com/repository/spring</url>
+      <mirrorOf>spring-releases</mirrorOf>
+    </mirror>
+  </mirrors>
+</settings>
+EOF
+
 # 复制 pom.xml（利用 Docker 缓存）
 COPY pom.xml .
 

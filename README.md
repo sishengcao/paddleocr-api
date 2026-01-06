@@ -35,6 +35,88 @@
 
 ---
 
+## 环境准备
+
+本项目提供两个自动化脚本，用于快速准备运行环境：
+
+### 1. 一键安装 Docker 运行环境
+
+适用于全新安装的系统或需要配置 Docker 的环境。
+
+```bash
+# 赋予执行权限
+chmod +x docker-fix-script-pro.sh
+
+# 以 root 权限运行（自动安装 Docker Compose v2）
+sudo bash docker-fix-script-pro.sh
+```
+
+**脚本功能**：
+- ✓ 自动检测并安装 Docker CE 和 Docker Compose v2
+- ✓ 配置多个国内镜像加速器（DaoCloud、南京大学、一面板等）
+- ✓ 配置 hosts 文件解决 DNS 污染问题
+- ✓ 配置 SSH 服务
+- ✓ 配置防火墙规则
+- ✓ 网络环境检测和故障诊断
+
+**支持的系统**：Ubuntu/Debian (APT)、CentOS/RHEL (YUM)、Fedora (DNF)
+
+### 2. 一键清理环境并重置
+
+适用于需要将现有虚拟机重置为纯净环境的场景。
+
+```bash
+# 赋予执行权限
+chmod +x system-purge-safe-script.sh
+
+# 以 root 权限运行
+sudo bash system-purge-safe-script.sh
+```
+
+**脚本功能**：
+- ✓ 删除所有非系统用户和家目录
+- ✓ 清理所有 Docker 容器、镜像、数据卷
+- ✓ 清理非必要软件包（MySQL、Redis、Nginx 等，保留 Docker）
+- ✓ 清理临时文件和日志
+- ✓ 重置网络配置为 DHCP
+- ✓ 重置 SSH 配置
+- ✓ 重置 root 密码为 `!qwert`
+- ✓ 清理命令历史记录
+
+**⚠️ 警告**：此脚本会删除大量数据，请谨慎使用！执行前需要输入 `YES` 确认。
+
+### 3. 推荐使用流程
+
+**全新环境部署**：
+```bash
+# 步骤 1: 安装 Docker 环境
+sudo bash docker-fix-script-pro.sh
+
+# 步骤 2: 克隆项目并启动
+git clone https://github.com/sishengcao/paddleocr-api.git
+cd paddleocr-api
+docker compose up -d
+```
+
+**环境重置后重新部署**：
+```bash
+# 步骤 1: 清理现有环境
+sudo bash system-purge-safe-script.sh
+
+# 步骤 2: 重启系统
+sudo reboot
+
+# 步骤 3: 重新登录后安装 Docker 环境
+sudo bash docker-fix-script-pro.sh
+
+# 步骤 4: 克隆项目并启动
+git clone https://github.com/sishengcao/paddleocr-api.git
+cd paddleocr-api
+docker compose up -d
+```
+
+---
+
 ## 快速开始
 
 ### Docker Compose 部署（推荐）

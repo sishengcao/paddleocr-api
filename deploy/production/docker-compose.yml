@@ -34,7 +34,10 @@ services:
 
   # ============== PaddleOCR Python API ==============
   python-api:
-    image: ghcr.io/sishengcao/paddleocr-api:latest
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    image: paddleocr-api:local
     container_name: paddleocr-api
     restart: unless-stopped
     environment:
@@ -66,7 +69,10 @@ services:
 
   # ============== Python API Celery Worker ==============
   celery-worker:
-    image: ghcr.io/sishengcao/paddleocr-api:latest
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    image: paddleocr-api:local
     container_name: celery-worker
     restart: unless-stopped
     command: celery -A app.workers.celery_worker worker --loglevel=info --logfile=/app/logs/celery.log
