@@ -4,6 +4,7 @@ import time
 import threading
 import logging
 from typing import List, Dict, Any, Optional
+import numpy as np
 from paddleocr import PaddleOCR
 from .schemas import TextBox, OcrOptions
 
@@ -197,21 +198,75 @@ class OcrService:
             details = []
 
             if result and result[0]:
-                for line in result[0]:
-                    if line:
-                        box_coords = line[0]
-                        text_info = line[1]
-                        text = text_info[0]
-                        confidence = float(text_info[1])
+                # 兼容新版 PaddleOCR 返回格式（字典）
+                if isinstance(result[0], dict):
+                    logger.info("检测到新版 PaddleOCR 格式（字典）")
+                    rec_texts = result[0].get('rec_texts', [])
+                    rec_scores = result[0].get('rec_scores', [])
+                    rec_polys = result[0].get('rec_polys', [])
+
+                    for i, text in enumerate(rec_texts):
+                        if not text:
+                            continue
 
                         texts.append(text)
 
                         if options.return_details:
+                            confidence = float(rec_scores[i]) if i < len(rec_scores) else 1.0
+
+                            if i < len(rec_polys):
+                                poly = rec_polys[i]
+                                if isinstance(poly, np.ndarray):
+                                    box = [[float(x), float(y)] for x, y in poly.tolist()]
+                                else:
+                                    box = [[float(x), float(y)] for x, y in poly]
+                            else:
+                                box = [[0, 0], [0, 0], [0, 0], [0, 0]]
+
                             details.append(TextBox(
                                 text=text,
                                 confidence=confidence,
-                                box=[[float(x), float(y)] for x, y in box_coords]
+                                box=box
                             ))
+
+                # 兼容旧版 PaddleOCR 返回格式（列表）
+                elif isinstance(result[0], list):
+                    logger.info("检测到旧版 PaddleOCR 格式（列表）")
+                    for line in result[0]:
+                        if line:
+                            try:
+                                box_coords = line[0]
+                                text_info = line[1]
+
+                                # 兼容不同版本的 PaddleOCR 返回格式
+                                if isinstance(text_info, list) and len(text_info) >= 2:
+                                    text = text_info[0]
+                                    confidence = float(text_info[1])
+                                elif isinstance(text_info, str):
+                                    text = text_info
+                                    confidence = 1.0
+                                else:
+                                    continue
+
+                                if not text:
+                                    continue
+
+                                texts.append(text)
+
+                                if options.return_details:
+                                    try:
+                                        box = [[float(x), float(y)] for x, y in box_coords]
+                                    except (ValueError, TypeError):
+                                        box = [[0, 0], [0, 0], [0, 0], [0, 0]]
+
+                                    details.append(TextBox(
+                                        text=text,
+                                        confidence=confidence,
+                                        box=box
+                                    ))
+                            except Exception as e:
+                                logger.warning(f"跳过无法解析的识别结果: {e}")
+                                continue
 
             # 根据排版方向和输出格式生成文本
             if details and (options.text_layout != "horizontal" or options.output_format != "line_by_line"):
