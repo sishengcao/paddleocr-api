@@ -21,6 +21,35 @@ docker compose up -d
 
 访问：http://localhost:8000/docs
 
+### 部署后容器信息
+
+| 服务 | 端口 | 访问地址 | 连接信息 |
+|------|------|----------|----------|
+| **API 服务** | 8000 | http://localhost:8000 | - |
+| API 文档 | 8000 | http://localhost:8000/docs | - |
+| 识别界面 | 8000 | http://localhost:8000/ | - |
+| **MySQL** | 3306 | localhost:3306 | `mysql://root:!qwert@localhost:3306/paddleocr_api` |
+| **Redis** | 6379 | localhost:6379 | `redis://localhost:6379/0` |
+
+### 容器管理
+
+```bash
+# 查看运行状态
+docker compose ps
+
+# 查看日志
+docker compose logs -f
+
+# 重启服务
+docker compose restart
+
+# 停止服务
+docker compose down
+
+# 停止并删除数据
+docker compose down -v
+```
+
 ### 方式二：服务器部署
 
 ```bash
