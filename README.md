@@ -198,17 +198,22 @@ sudo bash system-purge-safe-script.sh
 1. **Dockerfile 修复**
    - 将 `libgl1-mesa-glx` 改为 `libgl1`（Debian trixie 兼容性）
    - 移除清华 PyPI 镜像源（同步延迟问题）
+   - 添加 `procps` 包（提供 `pgrep` 命令用于容器健康检查）
 
-2. **PaddleOCR API 兼容性修复**
+2. **docker-compose.yml 增强**
+   - 为 `celery-worker` 添加健康检查配置（使用 `pgrep -f 'celery.*worker'`）
+   - 为 `celery-beat` 添加健康检查配置（使用 `pgrep -f 'celery.*beat'`）
+
+3. **PaddleOCR API 兼容性修复**
    - 移除不支持的 `use_gpu` 参数
    - 移除 `ocr.ocr()` 的 `cls` 参数
    - 添加对不同 PaddleOCR 返回格式的兼容处理
 
-3. **代码质量改进**
+4. **代码质量改进**
    - 修复 `celery_worker.py` 中的硬编码路径
    - 添加更完善的异常处理和错误日志
 
-4. **数据库迁移修复**
+5. **数据库迁移修复**
    - 修复 `books` 表列名（`metadata` → `metadata_json`）
    - 修复视图定义中的中文字符问题
 
@@ -223,7 +228,41 @@ sudo bash system-purge-safe-script.sh
 
 - 单个扫描功能：✅ 正常
 - 批量扫描功能：✅ 正常
-- Docker Compose 部署：✅ 所有组件正常运行
+- Docker Compose 部署：✅ 所有容器健康运行
+
+### 容器健康检查问题（已解决）
+
+**问题描述**：Celery worker 和 beat 容器显示为 unhealthy 状态。
+
+**原因分析**：
+
+1. **缺少 pgrep 命令**
+   - 错误信息：`/bin/sh: 1: pgrep: not found`
+   - 原因：健康检查脚本使用 `pgrep` 命令检查进程，但容器中未安装 `procps` 包
+
+**解决方案**：
+
+1. Dockerfile 添加 `procps` 包：在系统依赖列表中添加 `procps`
+2. docker-compose.yml 添加健康检查配置：
+   ```yaml
+   celery-worker:
+     healthcheck:
+       test: ["CMD-SHELL", "pgrep -f 'celery.*worker' > /dev/null || exit 1"]
+   celery-beat:
+     healthcheck:
+       test: ["CMD-SHELL", "pgrep -f 'celery.*beat' > /dev/null || exit 1"]
+   ```
+3. 重新构建镜像并启动容器
+
+**修复后状态**：
+
+```
+paddleocr-api           healthy
+paddleocr-mysql         healthy
+paddleocr-redis         healthy
+paddleocr-celery-worker healthy
+paddleocr-celery-beat   healthy
+```
 
 ### 容器启动失败问题（已解决）
 
@@ -252,8 +291,8 @@ CONTAINER ID   IMAGE               STATUS
 paddleocr-api      healthy (running)
 paddleocr-mysql    healthy (running)
 paddleocr-redis    healthy (running)
-paddleocr-celery-worker   running
-paddleocr-celery-beat     running
+paddleocr-celery-worker   healthy
+paddleocr-celery-beat     healthy
 ```
 
 ---

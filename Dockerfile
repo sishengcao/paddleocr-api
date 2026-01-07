@@ -31,6 +31,7 @@ RUN echo "nameserver 8.8.8.8" > /etc/resolv.conf && \
     curl -s --connect-timeout 5 https://mirrors.tuna.tsinghua.edu.cn > /dev/null 2>&1 || echo "警告: 无法连接到清华镜像源"
 
 # 安装系统依赖（添加重试机制）
+# 注意：libgl1-mesa-glx 在 Debian trixie 中已弃用，改用 libgl1
 RUN echo "开始安装系统依赖..." && \
     for i in 1 2 3; do \
         apt-get update && apt-get install -y \
@@ -41,6 +42,7 @@ RUN echo "开始安装系统依赖..." && \
             libxrender-dev \
             libgomp1 \
             build-essential \
+            procps \
             curl \
         && rm -rf /var/lib/apt/lists/* && break || \
         echo "第 $i 次尝试失败，等待 5 秒后重试..." && sleep 5; \
@@ -50,9 +52,8 @@ RUN echo "开始安装系统依赖..." && \
 # 复制依赖文件
 COPY requirements.txt .
 
-# 安装 Python 依赖（使用清华镜像源加速）
-RUN pip install --no-cache-dir -r requirements.txt \
-    -i https://pypi.tuna.tsinghua.edu.cn/simple
+# 安装 Python 依赖（使用默认源，清华镜像可能同步延迟）
+RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制应用代码
 COPY app ./app
