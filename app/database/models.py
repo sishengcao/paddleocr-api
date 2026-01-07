@@ -20,7 +20,8 @@ class Book(Base):
     source_directory = Column(String(1000), comment='Source directory path')
     total_pages = Column(Integer, default=0, comment='Total pages')
     total_volumes = Column(Integer, default=0, comment='Total volumes')
-    metadata_json = Column(JSON, comment='Additional metadata')
+    # 使用 'metadata' 作为数据库列名（metadata 是 Python 保留字，所以用不同的属性名）
+    metadata_json = Column("metadata", JSON, comment='Additional metadata')
     created_at = Column(TIMESTAMP, default=func.now(), comment='Creation time')
     updated_at = Column(TIMESTAMP, default=func.now(), onupdate=func.now(), comment='Update time')
 
