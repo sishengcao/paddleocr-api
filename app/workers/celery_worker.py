@@ -19,7 +19,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('/mnt/d/project/github/paddleocr-api/logs/celery_worker.log', encoding='utf-8'),
+        logging.FileHandler('/app/logs/celery_worker.log', encoding='utf-8'),
         logging.StreamHandler(sys.stdout)
     ]
 )

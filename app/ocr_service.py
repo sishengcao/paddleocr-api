@@ -152,7 +152,6 @@ class OcrService:
                 self._ocr_engine = PaddleOCR(
                     use_angle_cls=use_angle_cls,
                     lang=lang,
-                    use_gpu=False,  # WSL2 GPU 存在兼容性问题，暂时使用 CPU
                 )
                 load_time = time.time() - start_time
                 logger.info(f"PaddleOCR 模型加载完成，耗时：{load_time:.2f} 秒")
@@ -191,7 +190,7 @@ class OcrService:
             )
 
             # 执行识别（PaddleOCR 2.7.0 需要 cls 参数）
-            result = ocr.ocr(image_path, cls=options.use_angle_cls)
+            result = ocr.ocr(image_path)
 
             # 提取文本和详细信息
             texts = []

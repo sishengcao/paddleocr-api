@@ -4,7 +4,7 @@ services:
     image: mysql:8.0
     container_name: paddleocr-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: !qwert
+      MYSQL_ROOT_PASSWORD: '!qwert'
       MYSQL_DATABASE: paddleocr_api
     ports:
       - "3306:3306"

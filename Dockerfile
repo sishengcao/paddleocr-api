@@ -34,7 +34,7 @@ RUN echo "nameserver 8.8.8.8" > /etc/resolv.conf && \
 RUN echo "开始安装系统依赖..." && \
     for i in 1 2 3; do \
         apt-get update && apt-get install -y \
-            libgl1-mesa-glx \
+            libgl1 \
             libglib2.0-0 \
             libsm6 \
             libxext6 \
