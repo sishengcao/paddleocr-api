@@ -201,17 +201,17 @@ newgrp docker
 docker ps
 ```
 
-### 系统清理
+### 修改管理员密码
 
-**清理开发环境，重置为纯净状态**：
+如果您只有非管理员账号密码，需要修改 root 密码：
 
 ```bash
-chmod +x system-purge-safe-script.sh
-sudo bash system-purge-safe-script.sh
-sudo reboot
-```
+# 修改 root 密码
+sudo passwd root
 
-⚠️ 警告：会删除所有开发环境、数据和非系统用户！
+# 输入新密码两次
+# 之后可以使用 su - 切换到 root 用户
+```
 
 ---
 
@@ -268,7 +268,6 @@ docker exec -it paddleocr-mysql mysql -uroot -p
 | 脚本 | 说明 |
 |------|------|
 | `docker-fix-script-pro.sh` | 一键安装 Docker |
-| `system-purge-safe-script.sh` | 系统纯净还原 |
 | `deploy-server.sh` | 服务器部署 |
 | `deploy-linux.sh` | Linux 部署 |
 
