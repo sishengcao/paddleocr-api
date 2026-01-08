@@ -202,7 +202,7 @@ clean_user_homes() {
 
             # 保留列表
             case "$basename" in
-                .bashrc|.profile|.bash_logout|.ssh|.vimrc|.|..|.|)
+                .bashrc|.profile|.bash_logout|.ssh|.vimrc|.|..)
                     # 保留这些文件
                     ;;
                 *)
@@ -224,7 +224,7 @@ clean_user_homes() {
             local basename=$(basename "$item")
 
             case "$basename" in
-                .bashrc|.profile|.bash_logout|.ssh|.|..|.|)
+                .bashrc|.profile|.bash_logout|.ssh|.|..)
                     # 保留这些文件
                     ;;
                 *)
