@@ -4,7 +4,7 @@
 
 ---
 
-**快速导航** | [部署](#部署) · [使用](#使用) · [问题排查](#问题排查) · [配置](#配置文件)
+**快速导航** | [部署](#部署) · [使用](#使用) · [系统管理](#系统管理) · [配置](#配置文件)
 
 ---
 
@@ -122,28 +122,6 @@ services:
 
 ---
 
-## 问题排查
-
-### 常见问题
-
-| 问题 | 解决方案 |
-|------|----------|
-| 识别返回空结果 | 检查图片格式，尝试 `use_angle_cls=true` |
-| 识别结果不准确 | 调整 `lang` 参数（ch/en）或 `text_layout` 参数 |
-| 容器无法启动 | 检查端口 8000/3306/6379 是否被占用 |
-| 数据库连接失败 | 检查 MySQL 容器状态和密码配置 |
-
-### 问题复盘
-
-- [CHANGELOG.md](CHANGELOG.md) - 已知问题和解决方案历史记录
-
-### 问题排查文档
-
-- [常见问题.md](常见问题.md) - 部署和运行常见问题
-- [部署故障排查.md](部署故障排查.md) - 网络受限环境问题
-
----
-
 ## 配置文件
 
 ### 环境变量
@@ -188,6 +166,28 @@ ssh-keygen -t rsa -b 4096
 
 # 复制到服务器
 ssh-copy-id sishengcao@192.168.124.134
+```
+
+**SSH 配置生效操作**：
+
+如果 SSH 无法登录或配置未生效，执行以下步骤：
+
+```bash
+# 1. 确保 SSH 服务运行
+sudo systemctl restart ssh
+
+# 2. 检查 SSH 配置
+sudo grep -E "^PermitRootLogin|^PasswordAuthentication|^PubkeyAuthentication" /etc/ssh/sshd_config
+
+# 3. 如果配置不正确，手动修改（可选）
+sudo vim /etc/ssh/sshd_config
+# 确保以下配置项：
+# PermitRootLogin yes
+# PasswordAuthentication yes
+# PubkeyAuthentication yes
+
+# 4. 重启 SSH 使配置生效
+sudo systemctl restart ssh
 ```
 
 ### 非 root 用户执行 Docker
@@ -251,8 +251,8 @@ docker exec -it paddleocr-mysql mysql -uroot -p
 | [快速开始.md](快速开始.md) | Windows、Linux/WSL 部署步骤 |
 | [配置说明.md](配置说明.md) | 环境变量配置 |
 | [API使用指南.md](API使用指南.md) | API 文档和调用示例 |
-| [常见问题.md](常见问题.md) | 常见问题解答 |
-| [CHANGELOG.md](CHANGELOG.md) | 问题复盘记录 |
+| [CHANGELOG.md](CHANGELOG.md) | 问题复盘和变更记录 |
+| [常见问题.md](常见问题.md) | 部署和运行常见问题 |
 
 ### 进阶文档
 
