@@ -1,0 +1,30 @@
+# PaddleOCR API 服务依赖
+
+# Web 框架
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+
+# OCR 引擎
+paddlepaddle>=2.5.0
+paddleocr>=2.7.0
+
+# 数据验证
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# 数据库
+sqlalchemy>=2.0.0
+pymysql>=1.1.0
+cryptography>=41.0.0
+alembic>=1.12.0
+
+# 任务队列
+celery[redis]>=5.3.0
+redis>=5.0.0
+
+# 其他依赖
+Pillow>=10.0.0
+python-dotenv>=1.0.0
+openpyxl>=3.1.0
+pandas>=2.1.0

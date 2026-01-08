@@ -1,0 +1,30 @@
+# Java 项目 - Docker 忽略文件
+# 复制此文件到您的 Java 项目根目录
+
+target/
+!.target/*.jar
+*.class
+*.jar
+*.war
+*.ear
+*.log
+*.tmp
+*.bak
+*.swp
+*~.nib
+.git
+.gitignore
+.gitattributes
+.github
+.gitlab-ci.yml
+.travis.yml
+README.md
+.DS_Store
+.idea
+.vscode
+*.iml
+.settings
+.project
+.classpath
+.env
+.env.local

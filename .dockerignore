@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 日志和临时文件
+logs/
+*.log
+temp/
+uploads/
+
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 环境变量
+.env
+.env.local
+
+# 文档
+*.md
+docs/
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# macOS
+.DS_Store
+
+# 其他
+.dockerignore
+Dockerfile
+docker-compose.yml
+start.bat
+start.sh
+deploy-linux.sh

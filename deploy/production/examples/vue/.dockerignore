@@ -1,0 +1,21 @@
+# Vue 项目 - Docker 忽略文件
+# 复制此文件到您的 Vue 项目根目录
+
+node_modules
+npm-debug.log
+dist
+.git
+.gitignore
+README.md
+.env
+.env.local
+.env.*.local
+.DS_Store
+*.log
+.vscode
+.idea
+*.swp
+*.swo
+coverage
+.nyc_output
+.cache

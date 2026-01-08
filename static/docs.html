@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PaddleOCR API - 在线接口文档</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px 40px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            color: white;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: rgba(255,255,255,0.8);
+            font-size: 1rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #333;
+        }
+
+        .nav-tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: #888;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .nav-tab:hover, .nav-tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .endpoint {
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .endpoint.post { border-left-color: #49cc90; }
+        .endpoint.get { border-left-color: #61affe; }
+        .endpoint.delete { border-left-color: #f93e3e; }
+
+        .endpoint-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .method {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+
+        .method.POST { background: #49cc90; color: white; }
+        .method.GET { background: #61affe; color: white; }
+        .method.DELETE { background: #f93e3e; color: white; }
+
+        .path {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 1.1rem;
+            color: #fff;
+        }
+
+        .description {
+            color: #aaa;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+
+        .params-section {
+            background: #1f1f1f;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+
+        .params-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .param-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .param-table th, .param-table td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #333;
+        }
+
+        .param-table th {
+            color: #888;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .param-table td {
+            color: #e0e0e0;
+        }
+
+        .required {
+            color: #f93e3e;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .optional {
+            color: #61affe;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .code-block {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            overflow-x: auto;
+        }
+
+        .code-block pre {
+            color: #a5d6ff;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .response-example {
+            background: #1f1f1f;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+
+        .try-it-out {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-top: 15px;
+        }
+
+        .try-it-out:hover {
+            opacity: 0.9;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-success { background: #49cc90; color: white; }
+        .badge-info { background: #61affe; color: white; }
+        .badge-warning { background: #ff9800; color: white; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📄 PaddleOCR API <span style="font-size: 1rem; opacity: 0.8;">v2.0.0</span></h1>
+        <p>基于 PaddleOCR 的图片文字识别服务 - 支持中英文识别、竖排文字、批量扫描</p>
+    </div>
+
+    <div class="container">
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="switchTab('ocr')">📝 OCR 识别</button>
+            <button class="nav-tab" onclick="switchTab('batch')">📚 批量扫描</button>
+            <button class="nav-tab" onclick="switchTab('system')">⚙️ 系统</button>
+        </div>
+
+        <div id="ocr-tab" class="tab-content active">
+            <div class="endpoint post">
+                <div class="endpoint-header">
+                    <span class="method POST">POST</span>
+                    <span class="path">/api/ocr/recognize</span>
+                </div>
+                <p class="description">识别单张图片中的文字内容</p>
+
+                <div class="params-section">
+                    <div class="params-title">请求参数 (multipart/form-data)</div>
+                    <table class="param-table">
+                        <tr>
+                            <th style="width: 15%">参数名</th>
+                            <th style="width: 10%">类型</th>
+                            <th style="width: 10%">必填</th>
+                            <th style="width: 15%">默认值</th>
+                            <th>说明</th>
+                        </tr>
+                        <tr>
+                            <td><code>file</code></td>
+                            <td>File</td>
+                            <td><span class="required">必填</span></td>
+                            <td>-</td>
+                            <td>图片文件（支持 jpg、png、bmp）</td>
+                        </tr>
+                        <tr>
+                            <td><code>lang</code></td>
+                            <td>string</td>
+                            <td><span class="optional">选填</span></td>
+                            <td><code>ch</code></td>
+                            <td>语言类型：ch-中文, en-英文</td>
+                        </tr>
+                        <tr>
+                            <td><code>text_layout</code></td>
+                            <td>string</td>
+                            <td><span class="optional">选填</span></td>
+                            <td><code>horizontal</code></td>
+                            <td>
+                                文字排版方向<br>
+                                <span class="badge badge-success">horizontal</span> 横排从左到右<br>
+                                <span class="badge badge-info">vertical_rl</span> 竖排从右到左（古书）⭐<br>
+                                <span class="badge badge-warning">vertical_lr</span> 竖排从左到右
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><code>output_format</code></td>
+                            <td>string</td>
+                            <td><span class="optional">选填</span></td>
+                            <td><code>line_by_line</code></td>
+                            <td>
+                                输出格式<br>
+                                <span class="badge">line_by_line</span> 逐行输出<br>
+                                <span class="badge">char_by_char</span> 逐字排列<br>
+                                <span class="badge">column_by_column</span> 逐列排列
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><code>use_angle_cls</code></td>
+                            <td>boolean</td>
+                            <td><span class="optional">选填</span></td>
+                            <td><code>true</code></td>
+                            <td>是否使用文字方向分类</td>
+                        </tr>
+                        <tr>
+                            <td><code>return_details</code></td>
+                            <td>boolean</td>
+                            <td><span class="optional">选填</span></td>
+                            <td><code>true</code></td>
+                            <td>是否返回详细结果（坐标、置信度）</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="params-section">
+                    <div class="params-title">响应示例</div>
+                    <div class="code-block">
+<pre>{
+  "success": true,
+  "text": "识别的完整文字",
+  "details": [
+    {
+      "text": "每行文字",
+      "confidence": 0.98,
+      "box": [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
+    }
+  ],
+  "processing_time": 1.23
+}</pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint post">
+                <div class="endpoint-header">
+                    <span class="method POST">POST</span>
+                    <span class="path">/api/ocr/recognize-batch</span>
+                </div>
+                <p class="description">批量识别多张图片（最多10张）</p>
+                <div class="params-section">
+                    <div class="params-title">请求参数 (multipart/form-data)</div>
+                    <table class="param-table">
+                        <tr>
+                            <th style="width: 15%">参数名</th>
+                            <th style="width: 10%">类型</th>
+                            <th style="width: 10%">必填</th>
+                            <th>说明</th>
+                        </tr>
+                        <tr>
+                            <td><code>files</code></td>
+                            <td>File[]</td>
+                            <td><span class="required">必填</span></td>
+                            <td>图片文件列表（最多10张）</td>
+                        </tr>
+                        <tr>
+                            <td><code>lang, text_layout, output_format...</code></td>
+                            <td>-</td>
+                            <td><span class="optional">选填</span></td>
+                            <td>同单图识别参数</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="batch-tab" class="tab-content">
+            <div class="endpoint post">
+                <div class="endpoint-header">
+                    <span class="method POST">POST</span>
+                    <span class="path">/api/ocr/batch/scan</span>
+                </div>
+                <p class="description">创建批量扫描任务 - 自动扫描目录下所有图片</p>
+
+                <div class="params-section">
+                    <div class="params-title">请求参数 (application/json)</div>
+                    <table class="param-table">
+                        <tr>
+                            <th style="width: 15%">字段</th>
+                            <th style="width: 10%">类型</th>
+                            <th style="width: 10%">必填</th>
+                            <th>说明</th>
+                        </tr>
+                        <tr>
+                            <td><code>directory</code></td>
+                            <td>string</td>
+                            <td><span class="required">必填</span></td>
+                            <td>扫描目录路径（如：D:/scans/李氏族谱）</td>
+                        </tr>
+                        <tr>
+                            <td><code>book_id</code></td>
+                            <td>string</td>
+                            <td><span class="required">必填</span></td>
+                            <td>书籍/族谱唯一标识（如：李氏族谱_卷一）</td>
+                        </tr>
+                        <tr>
+                            <td><code>recursive</code></td>
+                            <td>boolean</td>
+                            <td><span class="optional">选填</span></td>
+                            <td>是否递归扫描子目录（默认：true）</td>
+                        </tr>
+                        <tr>
+                            <td><code>text_layout</code></td>
+                            <td>string</td>
+                            <td><span class="optional">选填</span></td>
+                            <td>文字排版方向（古书建议用 vertical_rl）</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="params-section">
+                    <div class="params-title">请求示例</div>
+                    <div class="code-block">
+<pre>{
+  "directory": "D:/scans/李氏族谱",
+  "book_id": "李氏族谱_卷一",
+  "text_layout": "vertical_rl",
+  "output_format": "char_by_char",
+  "recursive": true
+}</pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint get">
+                <div class="endpoint-header">
+                    <span class="method GET">GET</span>
+                    <span class="path">/api/ocr/batch/status/{task_id}</span>
+                </div>
+                <p class="description">查询批量扫描任务状态和进度</p>
+
+                <div class="params-section">
+                    <div class="params-title">响应字段</div>
+                    <table class="param-table">
+                        <tr>
+                            <th style="width: 20%">字段</th>
+                            <th>说明</th>
+                        </tr>
+                        <tr>
+                            <td><code>status</code></td>
+                            <td>任务状态：pending-等待中, running-处理中, completed-已完成, failed-失败</td>
+                        </tr>
+                        <tr>
+                            <td><code>progress</code></td>
+                            <td>进度百分比（0-100）</td>
+                        </tr>
+                        <tr>
+                            <td><code>total_files</code></td>
+                            <td>总文件数</td>
+                        </tr>
+                        <tr>
+                            <td><code>processed_files</code></td>
+                            <td>已处理文件数</td>
+                        </tr>
+                        <tr>
+                            <td><code>success_files</code></td>
+                            <td>成功识别的文件数</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="endpoint post">
+                <div class="endpoint-header">
+                    <span class="method POST">POST</span>
+                    <span class="path">/api/ocr/batch/export</span>
+                </div>
+                <p class="description">导出批量扫描结果（JSON/CSV 格式）</p>
+            </div>
+        </div>
+
+        <div id="system-tab" class="tab-content">
+            <div class="endpoint get">
+                <div class="endpoint-header">
+                    <span class="method GET">GET</span>
+                    <span class="path">/api/ocr/health</span>
+                </div>
+                <p class="description">健康检查 - 验证服务是否正常运行</p>
+            </div>
+
+            <div class="endpoint get">
+                <div class="endpoint-header">
+                    <span class="method GET">GET</span>
+                    <span class="path">/api/ocr/status</span>
+                </div>
+                <p class="description">获取服务统计信息（请求数、处理图片数等）</p>
+            </div>
+        </div>
+
+        <div style="margin-top: 40px; padding: 20px; background: #2a2a2a; border-radius: 8px; text-align: center;">
+            <p style="color: #888;">💡 提示：访问 <a href="/redoc" style="color: #667eea;">/redoc</a> 查看完整交互式文档</p>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tabName) {
+            // 隐藏所有内容
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+
+            // 显示选中的内容
+            document.getElementById(tabName + '-tab').classList.add('active');
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>

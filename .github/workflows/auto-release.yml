@@ -1,0 +1,91 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate Release Notes
+        id: release_notes
+        run: |
+          # 获取版本号
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+          # 生成 Release Notes
+          cat > release_notes.md << 'EOF'
+          # 🎉 PaddleOCR API $VERSION 发布
+
+          ## 🚀 快速安装
+
+          ### Docker 方式（推荐）
+          \`\`\`bash
+          docker pull ghcr.io/sishengcao/paddleocr-api:$VERSION
+          docker run -p 8000:8000 ghcr.io/sishengcao/paddleocr-api:$VERSION
+          \`\`\`
+
+          ### Python 包方式
+          \`\`\`bash
+          pip install paddleocr-api==$VERSION --index-url https://pip.github.com/sishengcao/paddleocr-api
+          \`\`\`
+
+          ### 从源码安装
+          \`\`\`bash
+          git clone https://github.com/sishengcao/paddleocr-api.git
+          cd paddleocr-api
+          git checkout v$VERSION
+          pip install -r requirements.txt
+          \`\`\`
+
+          ## 📦 Docker 镜像
+
+          - \`ghcr.io/sishengcao/paddleocr-api:$VERSION\`
+          - \`ghcr.io/sishengcao/paddleocr-api:latest\`
+
+          ## 🐍 Python 包
+
+          \`\`\`bash
+          pip install paddleocr-api==$VERSION --index-url https://pip.github.com/sishengcao/paddleocr-api
+          \`\`\`
+
+          ## 📖 完整文档
+
+          - [README](https://github.com/sishengcao/paddleocr-api/blob/master/README.md)
+          - [版本管理](https://github.com/sishengcao/paddleocr-api/blob/master/VERSION_MANAGEMENT.md)
+
+          ## ⬇️ 下载
+
+          - [源代码 (tar.gz)](https://github.com/sishengcao/paddleocr-api/archive/v$VERSION.tar.gz)
+          - [源代码 (zip)](https://github.com/sishengcao/paddleocr-api/archive/v$VERSION.zip)
+
+          ---
+
+          🤖 Generated with [Claude Code](https://claude.com/claude-code)
+          EOF
+
+          echo "notes_file=release_notes.md" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+          files: |
+            README.md
+            VERSION_MANAGEMENT.md
+            LICENSE
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
