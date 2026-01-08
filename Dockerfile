@@ -52,8 +52,15 @@ RUN echo "开始安装系统依赖..." && \
 # 复制依赖文件
 COPY requirements.txt .
 
-# 安装 Python 依赖（使用默认源，清华镜像可能同步延迟）
-RUN pip install --no-cache-dir -r requirements.txt
+# 安装 Python 依赖（使用国内镜像源，增加超时时间）
+RUN pip install --no-cache-dir --default-timeout=1000 \
+    -i https://mirrors.aliyun.com/pypi/simple/ \
+    --trusted-host mirrors.aliyun.com \
+    -r requirements.txt || \
+    pip install --no-cache-dir --default-timeout=1000 \
+    -i https://mirrors.tuna.tsinghua.edu.cn/pypi/simple/ \
+    --trusted-host mirrors.tuna.tsinghua.edu.cn \
+    -r requirements.txt
 
 # 复制应用代码
 COPY app ./app
