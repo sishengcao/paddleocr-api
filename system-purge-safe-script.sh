@@ -64,8 +64,8 @@ print_warning() {
     echo -e "${GREEN}1. root用户账户 (密码: ${ROOT_PASS})${NC}"
     echo -e "${GREEN}2. ${KEEP_USER}用户账户 (密码: ${KEEP_USER_PASS})${NC}"
     echo -e "${GREEN}3. 系统核心配置${NC}"
-    echo -e "${GREEN}4. 网络配置${NC}"
-    echo -e "${GREEN}5. SSH服务器配置${NC}"
+    echo -e "${GREEN}4. 现有网络配置（网卡IP、网关等）${NC}"
+    echo -e "${GREEN}5. SSH服务器配置及密钥${NC}"
     echo -e ""
     echo -e "${RED}══════════════════════════════════════════════════════════${NC}"
     echo -e ""
@@ -94,8 +94,19 @@ backup_important_files() {
         cp -r /etc/netplan "$BACKUP_DIR/netplan_backup"
     fi
 
-    # 备份SSH配置
+    # 备份SSH配置和密钥
     cp /etc/ssh/sshd_config "$BACKUP_DIR/sshd_config.backup"
+    if [[ -d /etc/ssh ]]; then
+        cp -r /etc/ssh "$BACKUP_DIR/ssh_keys_backup"
+    fi
+
+    # 备份用户SSH密钥
+    if [[ -d /root/.ssh ]]; then
+        cp -r /root/.ssh "$BACKUP_DIR/root_ssh_keys_backup"
+    fi
+    if [[ -d /home/${KEEP_USER}/.ssh ]]; then
+        cp -r /home/${KEEP_USER}/.ssh "$BACKUP_DIR/${KEEP_USER}_ssh_keys_backup"
+    fi
 
     # 备份系统源列表
     if [[ -d /etc/apt/sources.list.d ]]; then
@@ -109,7 +120,7 @@ backup_important_files() {
     # 备份磁盘挂载配置
     cp /etc/fstab "$BACKUP_DIR/fstab.backup"
 
-    log_success "重要配置文件已备份"
+    log_success "重要配置文件和SSH密钥已备份"
 }
 
 # 重置用户密码
@@ -625,71 +636,43 @@ clean_temp_files() {
     log_success "临时文件清理完成"
 }
 
-# 重置网络配置
+# 保留网络配置（跳过重置）
 reset_network_config() {
-    log_info "重置网络配置为 DHCP..."
-
-    if [[ -d /etc/netplan ]]; then
-        # Ubuntu 18.04+ 使用 Netplan
-        cat > /etc/netplan/01-network-manager-all.yaml << EOF
-network:
-  version: 2
-  renderer: NetworkManager
-  ethernets:
-    eth0:
-      dhcp4: true
-      optional: true
-EOF
-        netplan apply 2>/dev/null || log_warning "Netplan 配置应用失败"
-    elif [[ -f /etc/network/interfaces ]]; then
-        cat > /etc/network/interfaces << 'EOF'
-# interfaces(5) file used by ifup(8) and ifdown(8)
-auto lo
-iface lo inet loopback
-
-allow-hotplug eth0
-iface eth0 inet dhcp
-EOF
-        systemctl restart networking 2>/dev/null || true
-    fi
-
-    log_success "网络配置已重置为 DHCP"
+    log_info "跳过网络配置重置，保留现有网络设置..."
+    log_success "现有网络配置已保留"
 }
 
-# 重置 SSH 配置
+# 确保 SSH 配置支持登录（保留现有配置和密钥）
 reset_ssh_config() {
-    log_info "重置 SSH 配置..."
+    log_info "确保 SSH 登录已启用（保留现有配置和密钥）..."
 
-    cat > /etc/ssh/sshd_config << 'EOF'
-# SSH服务器配置
-Port 22
-Protocol 2
+    # 备份现有配置
+    cp /etc/ssh/sshd_config "$BACKUP_DIR/sshd_config.before_modification"
 
-# 认证设置
-PermitRootLogin yes
-PasswordAuthentication yes
-PubkeyAuthentication yes
+    # 只修改必要的 SSH 配置项，保留其他设置
+    sed -i 's/^#*PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config 2>/dev/null || true
+    sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config 2>/dev/null || true
+    sed -i 's/^#*PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config 2>/dev/null || true
 
-# 安全设置
-ClientAliveInterval 300
-ClientAliveCountMax 2
-MaxAuthTries 3
-MaxSessions 10
+    # 如果配置项不存在，则添加
+    if ! grep -q "^PermitRootLogin" /etc/ssh/sshd_config; then
+        echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
+    fi
+    if ! grep -q "^PasswordAuthentication" /etc/ssh/sshd_config; then
+        echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config
+    fi
+    if ! grep -q "^PubkeyAuthentication" /etc/ssh/sshd_config; then
+        echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config
+    fi
 
-# 日志设置
-SyslogFacility AUTH
-LogLevel INFO
+    # 确保 SSH 密钥目录存在且不被清理
+    mkdir -p /etc/ssh
+    chmod 755 /etc/ssh
 
-# 其他设置
-X11Forwarding no
-PrintMotd no
-AcceptEnv LANG LC_*
-Subsystem sftp /usr/lib/openssh/sftp-server
-EOF
-
+    # 重启 SSH 服务
     systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || true
 
-    log_success "SSH 配置已重置"
+    log_success "SSH 登录配置已确认，现有密钥和配置已保留"
 }
 
 # 清理历史记录
@@ -795,6 +778,11 @@ show_completion_info() {
     echo -e "  - 数据库 (MySQL, PostgreSQL, MongoDB, Redis)"
     echo -e "  - Web 服务器 (Nginx, Apache)"
     echo -e "  - 临时文件、缓存、日志"
+    echo -e ""
+    echo -e "${GREEN}已保留内容：${NC}"
+    echo -e "  - 现有网络配置（IP地址、网关、DNS等）"
+    echo -e "  - SSH 服务器配置和所有密钥"
+    echo -e "  - 用户 SSH 密钥（/root/.ssh 和 ~${KEEP_USER}/.ssh）"
     echo -e ""
     echo -e "${YELLOW}建议操作：${NC}"
     echo -e "  1. 立即重启系统: ${GREEN}sudo reboot${NC}"
