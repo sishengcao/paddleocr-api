@@ -38,7 +38,7 @@ log_error() {
 
 # 检查root权限
 check_root() {
-    if [[ $EUID -ne 0 ]]; then
+    if [ $(id -u) -ne 0 ]; then
         log_error "请使用 root 权限运行此脚本"
         echo "使用: sudo bash $0"
         exit 1
@@ -72,7 +72,7 @@ print_warning() {
 
     read -p "请输入 'YES' 确认执行 (大小写敏感): " confirmation
 
-    if [[ "$confirmation" != "YES" ]]; then
+    if [ "$confirmation" != "YES" ]; then
         log_error "操作取消"
         exit 1
     fi
@@ -90,26 +90,26 @@ backup_important_files() {
     log_info "备份重要配置文件..."
 
     # 备份网络配置
-    if [[ -d /etc/netplan ]]; then
+    if [ -d /etc/netplan ]; then
         cp -r /etc/netplan "$BACKUP_DIR/netplan_backup"
     fi
 
     # 备份SSH配置和密钥
     cp /etc/ssh/sshd_config "$BACKUP_DIR/sshd_config.backup"
-    if [[ -d /etc/ssh ]]; then
+    if [ -d /etc/ssh ]; then
         cp -r /etc/ssh "$BACKUP_DIR/ssh_keys_backup"
     fi
 
     # 备份用户SSH密钥
-    if [[ -d /root/.ssh ]]; then
+    if [ -d /root/.ssh ]; then
         cp -r /root/.ssh "$BACKUP_DIR/root_ssh_keys_backup"
     fi
-    if [[ -d /home/${KEEP_USER}/.ssh ]]; then
+    if [ -d /home/${KEEP_USER}/.ssh ]; then
         cp -r /home/${KEEP_USER}/.ssh "$BACKUP_DIR/${KEEP_USER}_ssh_keys_backup"
     fi
 
     # 备份系统源列表
-    if [[ -d /etc/apt/sources.list.d ]]; then
+    if [ -d /etc/apt/sources.list.d ]; then
         cp -r /etc/apt/sources.list.d "$BACKUP_DIR/sources.list.d.backup"
     fi
 
@@ -132,7 +132,7 @@ reset_user_passwords() {
     log_success "root密码已重置为: ${ROOT_PASS}"
 
     # 确保 sishengcao 用户存在，设置密码
-    if ! id "${KEEP_USER}" &>/dev/null; then
+    if ! id "${KEEP_USER}" >/dev/null 2>&1; then
         log_info "创建用户 ${KEEP_USER}..."
         useradd -m -s /bin/bash "${KEEP_USER}"
         usermod -aG sudo "${KEEP_USER}" 2>/dev/null || true
@@ -149,7 +149,7 @@ clean_non_system_users() {
     # 获取所有非系统用户（UID >= 1000），排除 root 和 sishengcao
     local users_to_remove=$(getent passwd | awk -F: -v user1="${KEEP_USER}" '$3 >= 1000 && $1 != "nobody" && $1 != "root" && $1 != user1 {print $1}')
 
-    if [[ -z "$users_to_remove" ]]; then
+    if [ -z "$users_to_remove" ]; then
         log_info "没有需要清理的非系统用户"
         return 0
     fi
@@ -172,10 +172,10 @@ clean_non_system_users() {
 
     # 清理/home目录下除了root和sishengcao外的其他目录
     for dir in /home/*; do
-        if [[ -d "$dir" ]]; then
+        if [ -d "$dir" ]; then
             local dirname=$(basename "$dir")
             # 跳过 root 和 sishengcao
-            if [[ "$dirname" != "root" && "$dirname" != "${KEEP_USER}" && "$dirname" != "lost+found" ]]; then
+            if [ "$dirname" != "root" ] && [ "$dirname" != "${KEEP_USER}" ] && [ "$dirname" != "lost+found" ]; then
                 log_info "删除目录: $dir"
                 rm -rf "$dir"
             fi
@@ -190,71 +190,47 @@ clean_user_homes() {
     log_info "清理用户家目录..."
 
     # 清理 root 家目录
-    if [[ -d /root ]]; then
+    if [ -d /root ]; then
         log_info "清理 root 家目录..."
         cd /root || return 1
 
-        # 保留必要的隐藏文件
-        local keep_root_files=(
-            ".bashrc"
-            ".profile"
-            ".bash_logout"
-            ".ssh"
-            ".vimrc"
-        )
-
-        # 创建临时保留列表
-        local temp_keep="/tmp/root_keep_files_$$.txt"
-        for file in "${keep_root_files[@]}"; do
-            if [[ -e "$file" ]]; then
-                echo "$file" >> "$temp_keep"
-            fi
-        done
-
-        # 删除其他所有文件
-        find . -maxdepth 1 ! -name "." ! -name ".." -print0 | while IFS= read -r -d '' item; do
+        # 删除其他所有文件，保留必要的隐藏文件
+        for item in ./* .*/.*; do
+            # 跳过不匹配的文件（glob 失败时）
+            [ -e "$item" ] || continue
             local basename=$(basename "$item")
-            local skip=false
-            for keep in "${keep_root_files[@]}"; do
-                if [[ "$basename" == "$keep" ]]; then
-                    skip=true
-                    break
-                fi
-            done
-            if ! $skip; then
-                rm -rf "$item"
-            fi
-        done
 
-        rm -f "$temp_keep"
+            # 保留列表
+            case "$basename" in
+                .bashrc|.profile|.bash_logout|.ssh|.vimrc|.|..|.|)
+                    # 保留这些文件
+                    ;;
+                *)
+                    # 删除其他文件
+                    rm -rf "$item"
+                    ;;
+            esac
+        done
     fi
 
     # 清理 sishengcao 家目录（保留基本配置）
-    if [[ -d /home/${KEEP_USER} ]]; then
+    if [ -d /home/${KEEP_USER} ]; then
         log_info "清理 ${KEEP_USER} 家目录..."
         cd /home/${KEEP_USER} || return 1
 
-        # 只保留基本配置文件
-        local keep_user_files=(
-            ".bashrc"
-            ".profile"
-            ".bash_logout"
-            ".ssh"
-        )
-
-        # 删除其他所有文件
-        find . -maxdepth 1 ! -name "." ! -name ".." -print0 | while IFS= read -r -d '' item; do
+        # 删除其他所有文件，保留基本配置文件
+        for item in ./* .*/.*; do
+            [ -e "$item" ] || continue
             local basename=$(basename "$item")
-            local skip=false
-            for keep in "${keep_user_files[@]}"; do
-                if [[ "$basename" == "$keep" ]]; then
-                    skip=true
-                    break
-                fi
-            done
-            if ! $skip; then
-                rm -rf "$item"
-            fi
+
+            case "$basename" in
+                .bashrc|.profile|.bash_logout|.ssh|.|..|.|)
+                    # 保留这些文件
+                    ;;
+                *)
+                    rm -rf "$item"
+                    ;;
+            esac
         done
     fi
 
@@ -265,7 +241,7 @@ clean_user_homes() {
 clean_docker() {
     log_info "清理 Docker 容器、镜像和数据..."
 
-    if command -v docker &> /dev/null; then
+    if command -v docker >/dev/null 2>&1; then
         # 停止所有容器
         docker stop $(docker ps -aq) 2>/dev/null || true
 
@@ -301,7 +277,7 @@ clean_java() {
     pkill -9 java 2>/dev/null || true
 
     # 删除所有 Java 包
-    if command -v apt-get &> /dev/null; then
+    if command -v apt-get >/dev/null 2>&1; then
         apt-get remove --purge -y \
             openjdk-* \
             icedtea-* \
@@ -336,7 +312,7 @@ clean_python() {
     pkill -9 python3 2>/dev/null || true
     pkill -9 python 2>/dev/null || true
 
-    if command -v apt-get &> /dev/null; then
+    if command -v apt-get >/dev/null 2>&1; then
         # 删除 Python 包和工具
         apt-get remove --purge -y \
             python3-pip \
@@ -379,7 +355,7 @@ clean_nodejs() {
     # 停止所有 node 进程
     pkill -9 node 2>/dev/null || true
 
-    if command -v apt-get &> /dev/null; then
+    if command -v apt-get >/dev/null 2>&1; then
         apt-get remove --purge -y nodejs npm 2>/dev/null || true
     fi
 
@@ -405,7 +381,7 @@ clean_nodejs() {
 clean_golang() {
     log_info "清理 Go 环境..."
 
-    if command -v apt-get &> /dev/null; then
+    if command -v apt-get >/dev/null 2>&1; then
         apt-get remove --purge -y golang-go 2>/dev/null || true
     fi
 
@@ -427,7 +403,7 @@ clean_golang() {
 clean_ruby() {
     log_info "清理 Ruby 环境..."
 
-    if command -v apt-get &> /dev/null; then
+    if command -v apt-get >/dev/null 2>&1; then
         apt-get remove --purge -y ruby ruby-full 2>/dev/null || true
     fi
 
@@ -445,7 +421,7 @@ clean_ruby() {
 clean_php() {
     log_info "清理 PHP 环境..."
 
-    if command -v apt-get &> /dev/null; then
+    if command -v apt-get >/dev/null 2>&1; then
         apt-get remove --purge -y php* php-common php-* 2>/dev/null || true
     fi
 
@@ -508,7 +484,7 @@ clean_databases() {
     systemctl stop redis 2>/dev/null || true
     systemctl stop redis-server 2>/dev/null || true
 
-    if command -v apt-get &> /dev/null; then
+    if command -v apt-get >/dev/null 2>&1; then
         apt-get remove --purge -y \
             mysql-server mysql-client \
             postgresql postgresql-contrib \
@@ -535,7 +511,7 @@ clean_web_servers() {
     systemctl stop apache2 2>/dev/null || true
     systemctl stop tomcat* 2>/dev/null || true
 
-    if command -v apt-get &> /dev/null; then
+    if command -v apt-get >/dev/null 2>&1; then
         apt-get remove --purge -y nginx apache2 tomcat* 2>/dev/null || true
     fi
 
@@ -551,39 +527,14 @@ clean_web_servers() {
 clean_other_software() {
     log_info "清理其他软件..."
 
-    if command -v apt-get &> /dev/null; then
+    if command -v apt-get >/dev/null 2>&1; then
         # 自动清理不需要的包
         apt-get autoremove --purge -y 2>/dev/null || true
 
-        # 清理特定软件
-        local other_packages=(
-            "git"                   # 版本控制
-            "subversion"            # SVN
-            "mercurial"             # Mercurial
-            "cmake"                 # 构建工具
-            "make"                  # 构建工具
-            "gcc"                   # 编译器
-            "g++"                   # 编译器
-            "clang"                 # 编译器
-            "llvm"                  # 编译器
-            "gradle"                # 构建工具
-            "maven"                 # 构建工具
-            "ant"                   # 构建工具
-            "ffmpeg"                # 视频处理
-            "imagemagick"           # 图像处理
-            "wireshark"             # 网络分析
-            "tcpdump"               # 网络抓包
-            "nmap"                  # 端口扫描
-            "curl"                  # HTTP 工具
-            "wget"                  # 下载工具
-            "tree"                  # 目录树
-            "htop"                  # 系统监控
-            "vim"                   # 编辑器
-            "nano"                  # 编辑器
-            "emacs"                 # 编辑器
-        )
-
-        for pkg in "${other_packages[@]}"; do
+        # 清理特定软件（空格分隔的包名列表）
+        for pkg in git subversion mercurial cmake make gcc g++ clang llvm \
+                   gradle maven ant ffmpeg imagemagick wireshark tcpdump nmap \
+                   curl wget tree htop vim nano emacs; do
             apt-get remove --purge -y "$pkg" 2>/dev/null || true
         done
     fi
@@ -595,7 +546,7 @@ clean_other_software() {
 clean_package_cache() {
     log_info "清理软件包缓存..."
 
-    if command -v apt-get &> /dev/null; then
+    if command -v apt-get >/dev/null 2>&1; then
         apt-get autoclean -y
         apt-get clean -y
         apt-get autoremove --purge -y
@@ -694,17 +645,7 @@ clean_history() {
 restore_basic_services() {
     log_info "恢复基本系统服务..."
 
-    local basic_services=(
-        "ssh"
-        "sshd"
-        "NetworkManager"
-        "systemd-networkd"
-        "systemd-resolved"
-        "rsyslog"
-        "cron"
-    )
-
-    for service in "${basic_services[@]}"; do
+    for service in ssh sshd NetworkManager systemd-networkd systemd-resolved rsyslog cron; do
         if systemctl list-unit-files | grep -q "^${service}.service"; then
             systemctl enable "$service" 2>/dev/null || true
             systemctl start "$service" 2>/dev/null || true
@@ -722,14 +663,14 @@ final_check() {
 
     # 检查用户
     echo -n "root 用户: "
-    if id root &>/dev/null; then
+    if id root >/dev/null 2>&1; then
         echo -e "${GREEN}存在 ✓${NC}"
     else
         echo -e "${RED}不存在 ✗${NC}"
     fi
 
     echo -n "${KEEP_USER} 用户: "
-    if id "${KEEP_USER}" &>/dev/null; then
+    if id "${KEEP_USER}" >/dev/null 2>&1; then
         echo -e "${GREEN}存在 ✓${NC}"
     else
         echo -e "${RED}不存在 ✗${NC}"
@@ -742,7 +683,7 @@ final_check() {
 
     # 检查网络
     echo -n "网络连接: "
-    if ping -c 1 -W 2 8.8.8.8 &> /dev/null; then
+    if ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; then
         echo -e "${GREEN}正常 ✓${NC}"
     else
         echo -e "${YELLOW}无网络 ⚠${NC}"
@@ -824,11 +765,13 @@ main() {
     # 询问是否重启
     echo -e "\n${YELLOW}是否现在重启系统？(y/n)${NC}"
     read -r reboot_choice
-    if [[ "$reboot_choice" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-        log_info "系统将在5秒后重启..."
-        sleep 5
-        reboot
-    fi
+    case "$reboot_choice" in
+        y|Y|yes|YES|Yes)
+            log_info "系统将在5秒后重启..."
+            sleep 5
+            reboot
+            ;;
+    esac
 }
 
 # 异常处理
