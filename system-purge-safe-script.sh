@@ -66,6 +66,7 @@ print_warning() {
     echo -e "${GREEN}3. 系统核心配置${NC}"
     echo -e "${GREEN}4. 现有网络配置（网卡IP、网关等）${NC}"
     echo -e "${GREEN}5. SSH服务器配置及密钥${NC}"
+    echo -e "${GREEN}6. 自动配置国内软件源（如当前源不可用）${NC}"
     echo -e ""
     echo -e "${RED}══════════════════════════════════════════════════════════${NC}"
     echo -e ""
@@ -542,6 +543,105 @@ clean_other_software() {
     log_success "其他软件清理完成"
 }
 
+# 配置国内软件源
+configure_china_sources() {
+    log_info "检查并配置国内软件源..."
+
+    # 检测 Ubuntu 版本
+    local ubuntu_version=""
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        ubuntu_version=$VERSION_ID
+    fi
+
+    # 测试当前源是否可用（简单测试：ping 主源）
+    log_info "测试当前软件源连接..."
+    local current_source_ok=false
+
+    # 尝试从当前源获取更新（超时 5 秒）
+    if timeout 5 apt-get update >/dev/null 2>&1; then
+        current_source_ok=true
+        log_success "当前软件源可用"
+    else
+        log_warning "当前软件源连接失败，切换到国内源..."
+    fi
+
+    # 如果当前源不可用，切换到国内源
+    if [ "$current_source_ok" = "false" ]; then
+        # 备份原源配置
+        if [ -f /etc/apt/sources.list ]; then
+            cp /etc/apt/sources.list "$BACKUP_DIR/sources.list.backup"
+        fi
+
+        # 获取系统代号
+        local codename=$(lsb_release -cs 2>/dev/null || echo "jammy")
+
+        # 尝试每个国内源
+        # 阿里云源
+        log_info "尝试切换到阿里云源..."
+        cat > /etc/apt/sources.list << EOF
+# 阿里云 - 由 system-purge-safe-script.sh 自动配置
+deb http://mirrors.aliyun.com/ubuntu/ ${codename} main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ ${codename}-updates main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ ${codename}-security main restricted universe multiverse
+deb http://mirrors.aliyun.com/ubuntu/ ${codename}-backports main restricted universe multiverse
+EOF
+        if timeout 10 apt-get update >/dev/null 2>&1; then
+            log_success "已成功切换到阿里云源"
+            return 0
+        fi
+
+        # 清华大学源
+        log_info "尝试切换到清华大学源..."
+        cat > /etc/apt/sources.list << EOF
+# 清华大学 - 由 system-purge-safe-script.sh 自动配置
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${codename} main restricted universe multiverse
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${codename}-updates main restricted universe multiverse
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${codename}-security main restricted universe multiverse
+deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${codename}-backports main restricted universe multiverse
+EOF
+        if timeout 10 apt-get update >/dev/null 2>&1; then
+            log_success "已成功切换到清华大学源"
+            return 0
+        fi
+
+        # 网易163源
+        log_info "尝试切换到网易163源..."
+        cat > /etc/apt/sources.list << EOF
+# 网易163 - 由 system-purge-safe-script.sh 自动配置
+deb http://mirrors.163.com/ubuntu/ ${codename} main restricted universe multiverse
+deb http://mirrors.163.com/ubuntu/ ${codename}-updates main restricted universe multiverse
+deb http://mirrors.163.com/ubuntu/ ${codename}-security main restricted universe multiverse
+deb http://mirrors.163.com/ubuntu/ ${codename}-backports main restricted universe multiverse
+EOF
+        if timeout 10 apt-get update >/dev/null 2>&1; then
+            log_success "已成功切换到网易163源"
+            return 0
+        fi
+
+        # 中科大源
+        log_info "尝试切换到中科大源..."
+        cat > /etc/apt/sources.list << EOF
+# 中科大 - 由 system-purge-safe-script.sh 自动配置
+deb http://mirrors.ustc.edu.cn/ubuntu/ ${codename} main restricted universe multiverse
+deb http://mirrors.ustc.edu.cn/ubuntu/ ${codename}-updates main restricted universe multiverse
+deb http://mirrors.ustc.edu.cn/ubuntu/ ${codename}-security main restricted universe multiverse
+deb http://mirrors.ustc.edu.cn/ubuntu/ ${codename}-backports main restricted universe multiverse
+EOF
+        if timeout 10 apt-get update >/dev/null 2>&1; then
+            log_success "已成功切换到中科大源"
+            return 0
+        fi
+
+        log_warning "所有国内源均不可用，恢复原配置"
+        if [ -f "$BACKUP_DIR/sources.list.backup" ]; then
+            cp "$BACKUP_DIR/sources.list.backup" /etc/apt/sources.list
+        fi
+    fi
+
+    log_success "软件源配置完成"
+}
+
 # 清理软件包缓存
 clean_package_cache() {
     log_info "清理软件包缓存..."
@@ -724,6 +824,7 @@ show_completion_info() {
     echo -e "  - 现有网络配置（IP地址、网关、DNS等）"
     echo -e "  - SSH 服务器配置和所有密钥"
     echo -e "  - 用户 SSH 密钥（/root/.ssh 和 ~${KEEP_USER}/.ssh）"
+    echo -e "  - 国内软件源配置（如已自动切换）"
     echo -e ""
     echo -e "${YELLOW}建议操作：${NC}"
     echo -e "  1. 立即重启系统: ${GREEN}sudo reboot${NC}"
@@ -753,6 +854,7 @@ main() {
     clean_databases
     clean_web_servers
     clean_other_software
+    configure_china_sources
     clean_package_cache
     clean_temp_files
     reset_network_config
