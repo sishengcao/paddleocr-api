@@ -547,96 +547,85 @@ clean_other_software() {
 configure_china_sources() {
     log_info "检查并配置国内软件源..."
 
-    # 检测 Ubuntu 版本
-    local ubuntu_version=""
-    if [ -f /etc/os-release ]; then
-        . /etc/os-release
-        ubuntu_version=$VERSION_ID
+    # 获取系统代号
+    local codename=$(lsb_release -cs 2>/dev/null || echo "jammy")
+
+    # 直接切换到国内源，不测试当前源
+    # 因为 cn.archive.ubuntu.com 在国内通常不可用
+    log_info "直接配置国内软件源..."
+
+    # 备份原源配置
+    if [ -f /etc/apt/sources.list ]; then
+        cp /etc/apt/sources.list "$BACKUP_DIR/sources.list.backup"
     fi
 
-    # 测试当前源是否可用（简单测试：ping 主源）
-    log_info "测试当前软件源连接..."
-    local current_source_ok=false
-
-    # 尝试从当前源获取更新（超时 5 秒）
-    if timeout 5 apt-get update >/dev/null 2>&1; then
-        current_source_ok=true
-        log_success "当前软件源可用"
-    else
-        log_warning "当前软件源连接失败，切换到国内源..."
-    fi
-
-    # 如果当前源不可用，切换到国内源
-    if [ "$current_source_ok" = "false" ]; then
-        # 备份原源配置
-        if [ -f /etc/apt/sources.list ]; then
-            cp /etc/apt/sources.list "$BACKUP_DIR/sources.list.backup"
-        fi
-
-        # 获取系统代号
-        local codename=$(lsb_release -cs 2>/dev/null || echo "jammy")
-
-        # 尝试每个国内源
-        # 阿里云源
-        log_info "尝试切换到阿里云源..."
-        cat > /etc/apt/sources.list << EOF
+    # 尝试每个国内源
+    # 阿里云源
+    log_info "配置阿里云源..."
+    cat > /etc/apt/sources.list << EOF
 # 阿里云 - 由 system-purge-safe-script.sh 自动配置
 deb http://mirrors.aliyun.com/ubuntu/ ${codename} main restricted universe multiverse
 deb http://mirrors.aliyun.com/ubuntu/ ${codename}-updates main restricted universe multiverse
 deb http://mirrors.aliyun.com/ubuntu/ ${codename}-security main restricted universe multiverse
 deb http://mirrors.aliyun.com/ubuntu/ ${codename}-backports main restricted universe multiverse
 EOF
-        if timeout 10 apt-get update >/dev/null 2>&1; then
-            log_success "已成功切换到阿里云源"
-            return 0
-        fi
 
-        # 清华大学源
-        log_info "尝试切换到清华大学源..."
-        cat > /etc/apt/sources.list << EOF
+    # 清理旧的缓存列表，强制使用新源
+    rm -rf /var/lib/apt/lists/*
+
+    if timeout 15 apt-get update >/dev/null 2>&1; then
+        log_success "已成功切换到阿里云源"
+        return 0
+    fi
+
+    # 清华大学源
+    log_info "尝试清华大学源..."
+    cat > /etc/apt/sources.list << EOF
 # 清华大学 - 由 system-purge-safe-script.sh 自动配置
 deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${codename} main restricted universe multiverse
 deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${codename}-updates main restricted universe multiverse
 deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${codename}-security main restricted universe multiverse
 deb https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ ${codename}-backports main restricted universe multiverse
 EOF
-        if timeout 10 apt-get update >/dev/null 2>&1; then
-            log_success "已成功切换到清华大学源"
-            return 0
-        fi
+    rm -rf /var/lib/apt/lists/*
+    if timeout 15 apt-get update >/dev/null 2>&1; then
+        log_success "已成功切换到清华大学源"
+        return 0
+    fi
 
-        # 网易163源
-        log_info "尝试切换到网易163源..."
-        cat > /etc/apt/sources.list << EOF
+    # 网易163源
+    log_info "尝试网易163源..."
+    cat > /etc/apt/sources.list << EOF
 # 网易163 - 由 system-purge-safe-script.sh 自动配置
 deb http://mirrors.163.com/ubuntu/ ${codename} main restricted universe multiverse
 deb http://mirrors.163.com/ubuntu/ ${codename}-updates main restricted universe multiverse
 deb http://mirrors.163.com/ubuntu/ ${codename}-security main restricted universe multiverse
 deb http://mirrors.163.com/ubuntu/ ${codename}-backports main restricted universe multiverse
 EOF
-        if timeout 10 apt-get update >/dev/null 2>&1; then
-            log_success "已成功切换到网易163源"
-            return 0
-        fi
+    rm -rf /var/lib/apt/lists/*
+    if timeout 15 apt-get update >/dev/null 2>&1; then
+        log_success "已成功切换到网易163源"
+        return 0
+    fi
 
-        # 中科大源
-        log_info "尝试切换到中科大源..."
-        cat > /etc/apt/sources.list << EOF
+    # 中科大源
+    log_info "尝试中科大源..."
+    cat > /etc/apt/sources.list << EOF
 # 中科大 - 由 system-purge-safe-script.sh 自动配置
 deb http://mirrors.ustc.edu.cn/ubuntu/ ${codename} main restricted universe multiverse
 deb http://mirrors.ustc.edu.cn/ubuntu/ ${codename}-updates main restricted universe multiverse
 deb http://mirrors.ustc.edu.cn/ubuntu/ ${codename}-security main restricted universe multiverse
 deb http://mirrors.ustc.edu.cn/ubuntu/ ${codename}-backports main restricted universe multiverse
 EOF
-        if timeout 10 apt-get update >/dev/null 2>&1; then
-            log_success "已成功切换到中科大源"
-            return 0
-        fi
+    rm -rf /var/lib/apt/lists/*
+    if timeout 15 apt-get update >/dev/null 2>&1; then
+        log_success "已成功切换到中科大源"
+        return 0
+    fi
 
-        log_warning "所有国内源均不可用，恢复原配置"
-        if [ -f "$BACKUP_DIR/sources.list.backup" ]; then
-            cp "$BACKUP_DIR/sources.list.backup" /etc/apt/sources.list
-        fi
+    log_warning "所有国内源均不可用，恢复原配置"
+    if [ -f "$BACKUP_DIR/sources.list.backup" ]; then
+        cp "$BACKUP_DIR/sources.list.backup" /etc/apt/sources.list
     fi
 
     log_success "软件源配置完成"
