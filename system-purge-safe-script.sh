@@ -839,6 +839,7 @@ main() {
     # 执行清理步骤
     create_backup_dir
     backup_important_files
+    configure_china_sources
     reset_user_passwords
     clean_non_system_users
     clean_user_homes
@@ -854,7 +855,6 @@ main() {
     clean_databases
     clean_web_servers
     clean_other_software
-    configure_china_sources
     clean_package_cache
     clean_temp_files
     reset_network_config
